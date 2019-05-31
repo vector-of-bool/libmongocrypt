@@ -133,7 +133,10 @@ _mongo_op_markings (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 
       bson_copy_to (&cmd_bson, &mongocryptd_cmd_bson);
       BSON_APPEND_DOCUMENT (&mongocryptd_cmd_bson, "jsonSchema", &schema_bson);
-      /* TODO: CDRIVER-3149 append isRemoteSchema. */
+
+      /* if a local schema was not set, set isRemoteSchema=true */
+      BSON_APPEND_BOOL (
+         &mongocryptd_cmd_bson, "isRemoteSchema", !ectx->used_local_schema);
       _mongocrypt_buffer_steal_from_bson (&ectx->mongocryptd_cmd,
                                           &mongocryptd_cmd_bson);
 
@@ -195,7 +198,7 @@ _mongo_feed_markings (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *in)
    if (bson_iter_init_find (&iter, &as_bson, "schemaRequiresEncryption") &&
        !bson_iter_as_bool (&iter)) {
       /* TODO: update cache: this schema does not require encryption. */
-      
+
       /* If using a local schema, warn if there are no encrypted fields. */
       if (!_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
          _mongocrypt_log (
@@ -630,7 +633,7 @@ _check_cmd_for_auto_encrypt (mongocrypt_binary_t *cmd,
    } else if (0 == strcmp (cmd_name, "saslStart")) {
       *bypass = true;
       return true;
-   }  else if (0 == strcmp (cmd_name, "saslContinue")) {
+   } else if (0 == strcmp (cmd_name, "saslContinue")) {
       *bypass = true;
       return true;
    }
@@ -713,6 +716,7 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
    /* Check if a local schema was provided. */
    if (!_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
       _mongocrypt_buffer_steal (&ectx->schema, &ctx->opts.local_schema);
+      ectx->used_local_schema = true;
       ctx->state = MONGOCRYPT_CTX_NEED_MONGO_MARKINGS;
    } else {
       return _try_collinfo_from_cache (ctx);
