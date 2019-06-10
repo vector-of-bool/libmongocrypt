@@ -100,14 +100,6 @@ by how they are initialized:
 -   explicit decrypt (mongocrypt\_ctx\_explicit\_decrypt\_init)
 -   create data key (mongocrypt\_ctx\_datakey\_init)
 
-Async drivers MUST set mongocrypt\_ctx\_setopt\_cache\_noblock on a
-context before initializing. This makes the call to
-mongocrypt\_ctx\_wait\_done non-blocking (see description of
-MONGOCRYPT\_CTX\_WAITING).
-
-To pass a local schema, use mongocrypt\_ctx\_setopt\_schema where the
-value is a BSON document representing a JSON schema.
-
 ### State Machine ###
 
 Below is a list of the various states a mongocrypt ctx can be in. For
@@ -125,18 +117,6 @@ Throw an exception based on the status from mongocrypt\_ctx\_status.
 **Applies to...**
 
 All contexts.
-
-#### State: MONGOCRYPT\_CTX\_NOTHING\_TO\_DO ####
-
-**Driver needs to...**
-
-Proceed with the original input. I.e. if this is for automatic
-encryption, there was nothing to encrypt. If this was for automatic
-decryption, there was nothing to decrypt.
-
-**Applies to...**
-
-auto encrypt, auto decrypt
 
 #### State: MONGOCRYPT\_CTX\_NEED\_MONGO\_COLLINFO ####
 
@@ -239,31 +219,5 @@ Exit the state machine loop.
 **Applies to...**
 
 All contexts.
-
-#### State: MONGOCRYPT\_CTX\_WAITING ####
-
-This indicates that the context is waiting for data to be fetched by
-another context (e.g. a key, KMS response, or result of
-listCollections).
-
-**Async drivers need to...**
-
-1.  Use mongocrypt\_ctx\_next\_dependent\_ctx\_id to iterate over
-    dependent contexts.
-2.  Wait for those contexts to make progress (e.g. by waiting on their
-    callbacks). The driver does not need to wait for all dependent
-    contexts to completely finish, but should wait until indication of
-    some progress.
-3.  Call mongocrypt\_ctx\_wait\_done. Note, this state may be entered
-    multiple times.
-
-**Sync drivers need to...**
-
-Call mongocrypt\_ctx\_wait\_done, which will block until dependant data
-is fetched or the state transitions.
-
-**Applies to...**
-
-All contexts except create data key.
 
 Seek help in the slack channel \#drivers-fle.
