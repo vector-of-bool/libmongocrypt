@@ -17,13 +17,13 @@
 #include <kms_message/kms_message.h>
 #include <bson/bson.h>
 
-#include "mongocrypt-binary-private.h"
+#include "mongocrypt-crypto-private.h"
 #include "mongocrypt-cache-collinfo-private.h"
 #include "mongocrypt-cache-key-private.h"
-#include "mongocrypt-crypto-private.h"
 #include "mongocrypt-log-private.h"
 #include "mongocrypt-opts-private.h"
 #include "mongocrypt-os-private.h"
+#include "mongocrypt-private.h"
 #include "mongocrypt-status-private.h"
 
 
@@ -124,11 +124,6 @@ mongocrypt_setopt_log_handler (mongocrypt_t *crypt,
                                mongocrypt_log_fn_t log_fn,
                                void *log_ctx)
 {
-   _mongocrypt_log (&crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s... setting custom log handler",
-                    BSON_FUNC);
-
    if (crypt->initialized) {
       mongocrypt_status_t *status = crypt->status;
       CLIENT_ERR ("options cannot be set after initialization");
@@ -138,6 +133,7 @@ mongocrypt_setopt_log_handler (mongocrypt_t *crypt,
    crypt->opts.log_ctx = log_ctx;
    return true;
 }
+
 
 bool
 mongocrypt_setopt_kms_provider_aws (mongocrypt_t *crypt,
@@ -173,92 +169,7 @@ mongocrypt_setopt_kms_provider_aws (mongocrypt_t *crypt,
       CLIENT_ERR ("invalid aws secret access key");
       return false;
    }
-
-   _mongocrypt_log (&crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\", %s=%d, %s=\"%s\", %s=%d)",
-                    BSON_FUNC,
-                    "aws_access_key_id",
-                    crypt->opts.kms_aws_access_key_id,
-                    "aws_access_key_id_len",
-                    aws_access_key_id_len,
-                    "aws_secret_access_key",
-                    crypt->opts.kms_aws_secret_access_key,
-                    "aws_secret_access_key_len",
-                    aws_secret_access_key_len);
-
    crypt->opts.kms_providers |= MONGOCRYPT_KMS_PROVIDER_AWS;
-   return true;
-}
-
-char *
-_mongocrypt_new_string_from_bytes (const void *in, int len)
-{
-   const int max_bytes = 100;
-   const int chars_per_byte = 2;
-   int out_size = max_bytes * chars_per_byte;
-   const unsigned char *src = in;
-   char *out;
-   char *ret;
-
-   out_size += len > max_bytes ? sizeof ("...") : 1 /* for null */;
-   out = bson_malloc0 (out_size);
-   ret = out;
-
-   for (int i = 0; i < len && i < max_bytes; i++, out += chars_per_byte) {
-      sprintf (out, "%02X", src[i]);
-   }
-
-   sprintf (out, (len > max_bytes) ? "..." : "");
-   return ret;
-}
-
-char *
-_mongocrypt_new_json_string_from_binary (mongocrypt_binary_t *binary)
-{
-   bson_t bson;
-   uint32_t len;
-
-   _mongocrypt_binary_to_bson (binary, &bson);
-   return bson_as_json (&bson, (size_t *) &len);
-}
-
-bool
-mongocrypt_setopt_schema_map (mongocrypt_t *crypt,
-                              mongocrypt_binary_t *schema_map)
-{
-   bson_t tmp;
-   bson_error_t bson_err;
-   mongocrypt_status_t *status = crypt->status;
-
-   if (crypt->initialized) {
-      CLIENT_ERR ("options cannot be set after initialization");
-      return false;
-   }
-
-   if (!schema_map || !mongocrypt_binary_data (schema_map)) {
-      CLIENT_ERR ("passed null schema map");
-      return false;
-   }
-
-   if (!_mongocrypt_buffer_empty (&crypt->opts.schema_map)) {
-      CLIENT_ERR ("already set schema map");
-      return false;
-   }
-
-   _mongocrypt_buffer_copy_from_binary (&crypt->opts.schema_map, schema_map);
-
-   /* validate bson */
-   if (!_mongocrypt_buffer_to_bson (&crypt->opts.schema_map, &tmp)) {
-      CLIENT_ERR ("invalid bson");
-      return false;
-   }
-
-   if (!bson_validate_with_error (&tmp, BSON_VALIDATE_NONE, &bson_err)) {
-      CLIENT_ERR (bson_err.message);
-      return false;
-   }
-
    return true;
 }
 
@@ -267,7 +178,6 @@ bool
 mongocrypt_setopt_kms_provider_local (mongocrypt_t *crypt,
                                       mongocrypt_binary_t *key)
 {
-   char *key_val;
    mongocrypt_status_t *status = crypt->status;
 
    if (crypt->initialized) {
@@ -290,17 +200,8 @@ mongocrypt_setopt_kms_provider_local (mongocrypt_t *crypt,
       return false;
    }
 
-   key_val = _mongocrypt_new_string_from_bytes (key->data, key->len);
-   _mongocrypt_log (&crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\")",
-                    BSON_FUNC,
-                    "key",
-                    key_val);
-
    _mongocrypt_buffer_copy_from_binary (&crypt->opts.kms_local_key, key);
    crypt->opts.kms_providers |= MONGOCRYPT_KMS_PROVIDER_LOCAL;
-   bson_free (key_val);
    return true;
 }
 
@@ -318,7 +219,7 @@ mongocrypt_init (mongocrypt_t *crypt)
 
    crypt->initialized = true;
 
-   if (0 != _mongocrypt_once (_mongocrypt_do_init) || !(_crypto_initialized)) {
+   if (0 != _mongocrypt_once (_mongocrypt_do_init)) {
       CLIENT_ERR ("failed to initialize");
       return false;
    }

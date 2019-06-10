@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "mongocrypt-ciphertext-private.h"
 #include "mongocrypt-crypto-private.h"
+#include "mongocrypt-ciphertext-private.h"
 #include "mongocrypt-ctx-private.h"
 
 static bool
@@ -107,16 +107,7 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
    dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
 
    if (!dctx->explicit) {
-      if (ctx->nothing_to_do) {
-         _mongocrypt_buffer_to_binary (&dctx->original_doc, out);
-         ctx->state = MONGOCRYPT_CTX_DONE;
-         return true;
-      }
-
-      if (!_mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson)) {
-         return _mongocrypt_ctx_fail_w_msg (ctx, "malformed bson");
-      }
-
+      _mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson);
       bson_iter_init (&iter, &as_bson);
       bson_init (&final_bson);
       res = _mongocrypt_transform_binary_in_bson (
@@ -187,16 +178,35 @@ _cleanup (mongocrypt_ctx_t *ctx)
 }
 
 
+static bool
+_wait_done (mongocrypt_ctx_t *ctx)
+{
+   if (!_mongocrypt_key_broker_check_cache_and_wait (&ctx->kb,
+                                                     !ctx->cache_noblock)) {
+      BSON_ASSERT (!_mongocrypt_key_broker_status (&ctx->kb, ctx->status));
+      return _mongocrypt_ctx_fail (ctx);
+   }
+   return true;
+}
+
+
+static uint32_t
+_next_dependent_ctx_id (mongocrypt_ctx_t *ctx)
+{
+   return _mongocrypt_key_broker_next_ctx_id (&ctx->kb);
+}
+
+
 bool
 mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
                                       mongocrypt_binary_t *msg)
 {
-   char *msg_val;
    _mongocrypt_ctx_decrypt_t *dctx;
    bson_iter_t iter;
    bson_t as_bson;
 
    _mongocrypt_ctx_opts_spec_t opts_spec = {0};
+
    if (!_mongocrypt_ctx_init (ctx, &opts_spec)) {
       return false;
    }
@@ -205,30 +215,19 @@ mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid msg");
    }
 
-   msg_val = _mongocrypt_new_json_string_from_binary (msg);
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\")",
-                    BSON_FUNC,
-                    "msg",
-                    msg_val);
-
-   bson_free (msg_val);
-
    dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
    dctx->explicit = true;
    ctx->type = _MONGOCRYPT_TYPE_DECRYPT;
    ctx->vtable.finalize = _finalize;
    ctx->vtable.cleanup = _cleanup;
+   ctx->vtable.wait_done = _wait_done;
+   ctx->vtable.next_dependent_ctx_id = _next_dependent_ctx_id;
 
 
    /* We expect these to be round-tripped from explicit encrypt,
       so they must be wrapped like { "v" : "encrypted thing" } */
    _mongocrypt_buffer_copy_from_binary (&dctx->original_doc, msg);
-   if (!_mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "malformed bson");
-   }
-
+   _mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson);
    if (!bson_iter_init_find (&iter, &as_bson, "v")) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid msg, must contain 'v'");
    }
@@ -251,7 +250,6 @@ mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
 bool
 mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
 {
-   char *doc_val;
    _mongocrypt_ctx_decrypt_t *dctx;
    bson_t as_bson;
    bson_iter_t iter;
@@ -265,26 +263,17 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid doc");
    }
 
-   doc_val = _mongocrypt_new_json_string_from_binary (doc);
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\")",
-                    BSON_FUNC,
-                    "doc",
-                    doc_val);
-
-   bson_free (doc_val);
    dctx = (_mongocrypt_ctx_decrypt_t *) ctx;
    ctx->type = _MONGOCRYPT_TYPE_DECRYPT;
    ctx->vtable.finalize = _finalize;
    ctx->vtable.cleanup = _cleanup;
+   ctx->vtable.wait_done = _wait_done;
+   ctx->vtable.next_dependent_ctx_id = _next_dependent_ctx_id;
+
 
    _mongocrypt_buffer_copy_from_binary (&dctx->original_doc, doc);
    /* get keys. */
-   if (!_mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "malformed bson");
-   }
-
+   _mongocrypt_buffer_to_bson (&dctx->original_doc, &as_bson);
    bson_iter_init (&iter, &as_bson);
    if (!_mongocrypt_traverse_binary_in_bson (_collect_key_from_ciphertext,
                                              &ctx->kb,
@@ -293,6 +282,9 @@ mongocrypt_ctx_decrypt_init (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *doc)
                                              ctx->status)) {
       return _mongocrypt_ctx_fail (ctx);
    }
+
+   ctx->state =
+      MONGOCRYPT_CTX_NOTHING_TO_DO; /* set default state TODO: remove. */
 
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }

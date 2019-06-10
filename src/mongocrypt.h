@@ -317,21 +317,6 @@ mongocrypt_setopt_kms_provider_local (mongocrypt_t *crypt,
 
 
 /**
- * Set a local schema map for encryption.
- *
- * @param[in] crypt The @ref mongocrypt_t object.
- * @param[in] schema_map A BSON document representing the schema map supplied by
- * the user. The keys are collection namespaces and values are JSON schemas.
- * @pre @p crypt has not been initialized.
- * @returns A boolean indicating success. If false, an error status is set.
- * Retrieve it with @ref mongocrypt_status
- */
-MONGOCRYPT_EXPORT
-bool
-mongocrypt_setopt_schema_map (mongocrypt_t *crypt, mongocrypt_binary_t *schema);
-
-
-/**
  * Initialize new @ref mongocrypt_t object.
  *
  * Set options before using @ref mongocrypt_setopt_kms_provider_local, @ref
@@ -489,6 +474,47 @@ bool
 mongocrypt_ctx_setopt_initialization_vector (mongocrypt_ctx_t *ctx,
                                              mongocrypt_binary_t *iv);
 
+
+/**
+ * Disable blocking waits on the shared key (or collinfo) cache.
+ *
+ * By default, if a @ref mongocrypt_ctx_t needs data currently
+ * being fetched by another @ref mongocrypt_ctx_t, it will block until
+ * the dependent context has fetched that data.
+ *
+ * For drivers that do not want libmongocrypt to block (e.g. async drivers)
+ * setting this option puts the responsibility of waiting into the caller. When
+ * a @ref mongocrypt_ctx_t is in the state MONGOCRYPT_CTX_WAITING, the caller
+ * can then get a list of dependent contexts with
+ * @ref mongocrypt_ctx_next_dependent_ctx_id and call @ref
+ * mongocrypt_ctx_wait_done to attempt to make progress.
+ *
+ * @param[in] crypt The @ref mongocrypt_t object.
+ * @pre @p ctx has not been initialized.
+ * @returns A boolean indicating success. If false, an error status is set.
+ * Retrieve it with @ref mongocrypt_ctx_status
+ * @see @ref mongocrypt_ctx_id and @ref mongocrypt_ctx_next_dependent_ctx_id.
+ */
+MONGOCRYPT_EXPORT
+bool
+mongocrypt_ctx_setopt_cache_noblock (mongocrypt_ctx_t *ctx);
+
+
+/**
+ * Get a unique non-zero ID for this context.
+ *
+ * Always returns the same ID.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @returns a unique ID for this context.
+ * @see @ref mongocrypt_ctx_next_dependent_ctx_id and @ref
+ * mongocrypt_setopt_cache_noblock
+ */
+MONGOCRYPT_EXPORT
+uint32_t
+mongocrypt_ctx_id (mongocrypt_ctx_t *ctx);
+
+
 /**
  * Identify the AWS KMS master key to use for creating a data key.
  *
@@ -543,6 +569,22 @@ mongocrypt_ctx_setopt_masterkey_local (mongocrypt_ctx_t *ctx);
 MONGOCRYPT_EXPORT
 bool
 mongocrypt_ctx_datakey_init (mongocrypt_ctx_t *ctx);
+
+
+/**
+ * Set a local schema for encryption.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @param[in] schema A BSON local schema supplied by the user.
+ * @pre @p ctx has not been initialized.
+ * @returns A boolean indicating success. If false, an error status is set.
+ * Retrieve it with @ref mongocrypt_ctx_status
+ */
+MONGOCRYPT_EXPORT
+bool
+mongocrypt_ctx_setopt_schema (mongocrypt_ctx_t *ctx,
+                              mongocrypt_binary_t *schema);
+
 
 /**
  * Initialize a context for encryption.
@@ -628,12 +670,14 @@ mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
 
 typedef enum {
    MONGOCRYPT_CTX_ERROR = 0,
-   MONGOCRYPT_CTX_NEED_MONGO_COLLINFO = 1, /* run on main MongoClient */
-   MONGOCRYPT_CTX_NEED_MONGO_MARKINGS = 2, /* run on mongocryptd. */
-   MONGOCRYPT_CTX_NEED_MONGO_KEYS = 3,     /* run on key vault */
-   MONGOCRYPT_CTX_NEED_KMS = 4,
-   MONGOCRYPT_CTX_READY = 5, /* ready for encryption/decryption */
-   MONGOCRYPT_CTX_DONE = 6
+   MONGOCRYPT_CTX_NOTHING_TO_DO = 1,
+   MONGOCRYPT_CTX_NEED_MONGO_COLLINFO = 2, /* run on main MongoClient */
+   MONGOCRYPT_CTX_NEED_MONGO_MARKINGS = 3, /* run on mongocryptd. */
+   MONGOCRYPT_CTX_NEED_MONGO_KEYS = 4,     /* run on key vault */
+   MONGOCRYPT_CTX_NEED_KMS = 5,
+   MONGOCRYPT_CTX_READY = 6, /* ready for encryption/decryption */
+   MONGOCRYPT_CTX_DONE = 7,
+   MONGOCRYPT_CTX_WAITING = 8 /* waiting for data from other contexts. */
 } mongocrypt_ctx_state_t;
 
 
@@ -814,6 +858,33 @@ mongocrypt_kms_ctx_status (mongocrypt_kms_ctx_t *kms,
 MONGOCRYPT_EXPORT
 bool
 mongocrypt_ctx_kms_done (mongocrypt_ctx_t *ctx);
+
+
+/**
+ * Iterate over the list of dependent contexts by ID.
+ *
+ * Call when in MONGOCRYPT_CTX_WAITING state.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @returns A non-zero context ID or 0.
+ * @see @ref mongocrypt_ctx_id
+ */
+MONGOCRYPT_EXPORT
+uint32_t
+mongocrypt_ctx_next_dependent_ctx_id (mongocrypt_ctx_t *ctx);
+
+
+/**
+ * Call when in MONGOCRYPT_CTX_WAITING state to attempt to make
+ * progress.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @returns A bool indicating success.
+ * @see @ref mongocrypt_ctx_id
+ */
+MONGOCRYPT_EXPORT
+bool
+mongocrypt_ctx_wait_done (mongocrypt_ctx_t *ctx);
 
 
 /**

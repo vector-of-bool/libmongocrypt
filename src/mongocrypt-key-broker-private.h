@@ -42,6 +42,9 @@
 typedef enum {
    /* has an id/keyAltName, but nothing else. */
    KEY_EMPTY,
+   /* some other context is responsible for this key. We'll get it from the
+      cache later. */
+   KEY_WAITING_FOR_OTHER_CTX,
    /* has the key document from the key vault, with encrypted keyMaterial */
    KEY_ENCRYPTED,
    /* caller has iterated the kms context, but not fed everything yet. */
@@ -64,20 +67,21 @@ typedef struct __mongocrypt_key_broker_entry_t _mongocrypt_key_broker_entry_t;
 typedef struct {
    _mongocrypt_key_broker_entry_t *kb_entry; /* head of a linked-list. */
    _mongocrypt_key_broker_entry_t *decryptor_iter;
+   _mongocrypt_key_broker_entry_t *ctx_id_iter;
 
    mongocrypt_status_t *status; /* TODO: remove this. */
    _mongocrypt_buffer_t filter;
    _mongocrypt_opts_t *crypt_opts;
    _mongocrypt_cache_t *cache_key;
-   _mongocrypt_log_t *log;
+   uint32_t owner_id;
 } _mongocrypt_key_broker_t;
 
 
 void
 _mongocrypt_key_broker_init (_mongocrypt_key_broker_t *kb,
+                             uint32_t owner_id,
                              _mongocrypt_opts_t *opts,
-                             _mongocrypt_cache_t *cache_key,
-                             _mongocrypt_log_t *log);
+                             _mongocrypt_cache_t *cache_key);
 
 
 /* Add an ID into the key broker. */
@@ -130,6 +134,19 @@ bool
 _mongocrypt_key_broker_kms_done (_mongocrypt_key_broker_t *kb);
 
 
+/* Iterate the contexts we're waiting on for cache entries. */
+uint32_t
+_mongocrypt_key_broker_next_ctx_id (_mongocrypt_key_broker_t *kb);
+
+
+bool
+_mongocrypt_key_broker_check_cache_and_wait (_mongocrypt_key_broker_t *kb,
+                                             bool blocking_wait);
+
+
+void
+_mongocrypt_key_broker_reset_iterators (_mongocrypt_key_broker_t *kb);
+
 /* Get the final decrypted key material from a key. */
 bool
 _mongocrypt_key_broker_decrypted_key_by_id (_mongocrypt_key_broker_t *kb,
@@ -151,10 +168,5 @@ _mongocrypt_key_broker_status (_mongocrypt_key_broker_t *kb,
 void
 _mongocrypt_key_broker_cleanup (_mongocrypt_key_broker_t *kb);
 
-void
-_mongocrypt_key_broker_debug (_mongocrypt_key_broker_t *kb);
-
-void
-_mongocrypt_key_broker_reset_iterators (_mongocrypt_key_broker_t *kb);
 
 #endif /* MONGOCRYPT_KEY_BROKER_PRIVATE_H */

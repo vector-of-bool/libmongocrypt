@@ -40,6 +40,7 @@ typedef struct __mongocrypt_ctx_opts_t {
    uint32_t masterkey_aws_cmk_len;
    char *masterkey_aws_region;
    uint32_t masterkey_aws_region_len;
+   _mongocrypt_buffer_t local_schema;
    _mongocrypt_buffer_t key_id;
    bson_value_t *key_alt_name;
    mongocrypt_encryption_algorithm_t algorithm;
@@ -59,6 +60,8 @@ typedef struct {
    bool (*mongo_done_keys) (mongocrypt_ctx_t *ctx);
    mongocrypt_kms_ctx_t *(*next_kms_ctx) (mongocrypt_ctx_t *ctx);
    bool (*kms_done) (mongocrypt_ctx_t *ctx);
+   bool (*wait_done) (mongocrypt_ctx_t *ctx);
+   uint32_t (*next_dependent_ctx_id) (mongocrypt_ctx_t *ctx);
    bool (*finalize) (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out);
    void (*cleanup) (mongocrypt_ctx_t *ctx);
 } _mongocrypt_vtable_t;
@@ -72,9 +75,9 @@ struct _mongocrypt_ctx_t {
    _mongocrypt_key_broker_t kb;
    _mongocrypt_vtable_t vtable;
    _mongocrypt_ctx_opts_t opts;
+   uint32_t id;
    bool initialized;
-   bool
-      nothing_to_do; /* set to true if no encryption/decryption is required. */
+   bool cache_noblock;
 };
 
 
@@ -94,6 +97,9 @@ typedef struct {
    char *coll_name;
    char *db_name;
    char *ns;
+   bool waiting_for_collinfo;
+   _mongocrypt_cache_pair_state_t collinfo_state;
+   uint32_t collinfo_owner;
    _mongocrypt_buffer_t list_collections_filter;
    _mongocrypt_buffer_t schema;
    /* TODO CDRIVER-3150: audit + rename these buffers.
@@ -113,7 +119,6 @@ typedef struct {
    _mongocrypt_buffer_t marked_cmd;
    _mongocrypt_buffer_t encrypted_cmd;
    _mongocrypt_buffer_t key_id;
-   bool used_local_schema;
 } _mongocrypt_ctx_encrypt_t;
 
 

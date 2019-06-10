@@ -28,7 +28,6 @@ _test_explicit_encrypt_init (_mongocrypt_tester_t *tester)
    mongocrypt_binary_t *name;
    mongocrypt_binary_t *msg;
    mongocrypt_binary_t *key_id;
-   mongocrypt_binary_t *tmp;
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx;
    bson_t *bson_msg;
@@ -139,201 +138,6 @@ _test_explicit_encrypt_init (_mongocrypt_tester_t *tester)
    BSON_ASSERT (ctx->state == MONGOCRYPT_CTX_NEED_MONGO_KEYS);
    mongocrypt_ctx_destroy (ctx);
 
-   /* double succeeds for random. */
-   tmp = TEST_BSON ("{'v': { '$double': '1.23'} }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* double fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* decimal128 succeeds for random. */
-   tmp = TEST_BSON ("{'v': {'$numberDecimal': '1.23'} }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* decimal128 fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* document succeeds for random. */
-   tmp = TEST_BSON ("{'v': { 'x': 1 } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* document fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* array succeeds for random. */
-   tmp = TEST_BSON ("{'v': [1,2,3] }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* document fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* codewscope succeeds for random. */
-   tmp = TEST_BSON ("{'v': {'$code': 'var x = 1;', '$scope': {} } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* codewscope fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* bool succeeds for random. */
-   tmp = TEST_BSON ("{'v': true }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* bool fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for deterministic encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* null fails for deterministic. */
-   tmp = TEST_BSON ("{'v': null }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* null fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* minkey fails for deterministic. */
-   tmp = TEST_BSON ("{'v': { '$minKey': 1 } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* minkey fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* maxkey fails for deterministic. */
-   tmp = TEST_BSON ("{'v': { '$maxKey': 1 } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* maxkey fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* undefined fails for deterministic. */
-   tmp = TEST_BSON ("{'v': { '$undefined': true } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* undefined fails for deterministic. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_FAILS (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp),
-                 ctx,
-                 "BSON type invalid for encryption");
-   mongocrypt_ctx_destroy (ctx);
-
-
-   /* dbpointer succeeds for deterministic. */
-   tmp = TEST_BSON ("{'v': { '$dbPointer': {'$ref': 'ns', '$id': {'$oid': "
-                    "'AAAAAAAAAAAAAAAAAAAAAAAA'} } } }");
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, deterministic, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* dbpointer succeeds for random. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
-   ASSERT_OK (mongocrypt_ctx_setopt_algorithm (ctx, random, -1), ctx);
-   ASSERT_OK (mongocrypt_ctx_explicit_encrypt_init (ctx, tmp), ctx);
-   mongocrypt_ctx_destroy (ctx);
-
    mongocrypt_destroy (crypt);
 
    mongocrypt_binary_destroy (msg);
@@ -384,22 +188,6 @@ _test_encrypt_init (_mongocrypt_tester_t *tester)
                     ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
                  ctx,
                  "cannot double initialize");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* Empty db name is an error. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_FAILS (mongocrypt_ctx_encrypt_init (
-                    ctx, "", -1, TEST_FILE ("./test/example/cmd.json")),
-                 ctx,
-                 "invalid db");
-   mongocrypt_ctx_destroy (ctx);
-
-   /* Empty coll name is an error. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_FAILS (
-      mongocrypt_ctx_encrypt_init (ctx, "", -1, TEST_BSON ("{'find': ''}")),
-      ctx,
-      "empty collection name on command");
    mongocrypt_ctx_destroy (ctx);
 
    mongocrypt_destroy (crypt);
@@ -530,7 +318,7 @@ _test_encrypt_need_markings (_mongocrypt_tester_t *tester)
          ctx, TEST_FILE ("./test/data/mongocryptd-reply-no-markings.json")),
       ctx);
    ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_READY);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_NOTHING_TO_DO);
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt); /* recreate crypt because of caching. */
 
@@ -548,7 +336,7 @@ _test_encrypt_need_markings (_mongocrypt_tester_t *tester)
          TEST_FILE ("./test/data/mongocryptd-reply-no-encryption-needed.json")),
       ctx);
    ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_READY);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_NOTHING_TO_DO);
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt); /* recreate crypt because of caching. */
 
@@ -729,102 +517,45 @@ _test_view (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
-/* Check that the schema identified in the schema_map by 'ns' matches the
- * 'jsonSchema' of the mongocryptd command. */
-static void
-_assert_schema_compares (mongocrypt_binary_t *schema_map,
-                         const char *ns,
-                         mongocrypt_binary_t *mongocryptd_cmd)
-{
-   bson_t schema_map_bson, mongocryptd_cmd_bson, expected_schema, actual_schema;
-   uint32_t len;
-   const uint8_t *data;
-   bson_iter_t iter;
-
-   /* Get the schema from the map. */
-   BSON_ASSERT (_mongocrypt_binary_to_bson (schema_map, &schema_map_bson));
-   BSON_ASSERT (bson_iter_init_find (&iter, &schema_map_bson, ns));
-   bson_iter_document (&iter, &len, &data);
-   bson_init_static (&expected_schema, data, len);
-
-   /* Get the schema from the mongocryptd command. */
-   BSON_ASSERT (
-      _mongocrypt_binary_to_bson (mongocryptd_cmd, &mongocryptd_cmd_bson));
-   BSON_ASSERT (
-      bson_iter_init_find (&iter, &mongocryptd_cmd_bson, "jsonSchema"));
-   bson_iter_document (&iter, &len, &data);
-   BSON_ASSERT (bson_init_static (&actual_schema, data, len));
-
-
-   BSON_ASSERT (bson_equal (&expected_schema, &actual_schema));
-}
-
 
 static void
 _test_local_schema (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx;
-   mongocrypt_binary_t *schema_map, *mongocryptd_cmd;
+   mongocrypt_binary_t *schema, *bin;
+   bson_t expected_schema, actual_schema, mongocryptd_cmd;
+   uint32_t len;
+   const uint8_t *data;
+   bson_iter_t iter;
 
-   crypt = mongocrypt_new ();
-   schema_map = TEST_FILE ("./test/data/schema-map.json");
-   ASSERT_OK (
-      mongocrypt_setopt_kms_provider_aws (crypt, "example", -1, "example", -1),
-      crypt);
-   ASSERT_OK (mongocrypt_setopt_schema_map (crypt, schema_map), crypt);
-   ASSERT_OK (mongocrypt_init (crypt), crypt);
-
-   /* Schema map has test.test, we should jump right to NEED_MONGO_MARKINGS */
+   crypt = _mongocrypt_tester_mongocrypt ();
    ctx = mongocrypt_ctx_new (crypt);
-   mongocryptd_cmd = mongocrypt_binary_new ();
+   schema = TEST_FILE ("./test/data/schema.json");
+   _mongocrypt_binary_to_bson (schema, &expected_schema);
+   ASSERT_OK (mongocrypt_ctx_setopt_schema (ctx, schema), ctx);
    ASSERT_OK (mongocrypt_ctx_encrypt_init (
                  ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
               ctx);
+   /* Since we supplied a schema, we should jump right to NEED_MONGO_MARKINGS */
    BSON_ASSERT (mongocrypt_ctx_state (ctx) ==
                 MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (mongocrypt_ctx_mongo_op (ctx, mongocryptd_cmd), ctx);
+   bin = mongocrypt_binary_new ();
+   mongocrypt_ctx_mongo_op (ctx, bin);
+   _mongocrypt_binary_to_bson (bin, &mongocryptd_cmd);
+   BSON_ASSERT (bson_iter_init_find (&iter, &mongocryptd_cmd, "jsonSchema"));
+   bson_iter_document (&iter, &len, &data);
+   BSON_ASSERT (bson_init_static (&actual_schema, data, len));
 
    /* We should get back the schema we gave. */
-   _assert_schema_compares (schema_map, "test.test", mongocryptd_cmd);
+   BSON_ASSERT (bson_equal (&expected_schema, &actual_schema));
    _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_DONE);
+
+   bson_destroy (&expected_schema);
+   bson_destroy (&actual_schema);
+   bson_destroy (&mongocryptd_cmd);
+   mongocrypt_binary_destroy (bin);
    mongocrypt_ctx_destroy (ctx);
-   mongocrypt_binary_destroy (mongocryptd_cmd);
-
-   /* Schema map has test.test2, we should jump right to NEED_MONGO_MARKINGS */
-   ctx = mongocrypt_ctx_new (crypt);
-   mongocryptd_cmd = mongocrypt_binary_new ();
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_BSON ("{'find': 'test2'}")),
-              ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) ==
-                MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (mongocrypt_ctx_mongo_op (ctx, mongocryptd_cmd), ctx);
-
-   /* We should get back the schema we gave. */
-   _assert_schema_compares (schema_map, "test.test2", mongocryptd_cmd);
-   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_DONE);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_binary_destroy (mongocryptd_cmd);
-
-   /* Database that does not match should not get from the map. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "mismatch", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) ==
-                MONGOCRYPT_CTX_NEED_MONGO_COLLINFO);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* Collection that does not match should not get from the map. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_BSON ("{'find': 'mismatch'}")),
-              ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) ==
-                MONGOCRYPT_CTX_NEED_MONGO_COLLINFO);
-   mongocrypt_ctx_destroy (ctx);
-
    mongocrypt_destroy (crypt);
 }
 
@@ -835,6 +566,8 @@ _test_encrypt_caches_collinfo (_mongocrypt_tester_t *tester)
    mongocrypt_ctx_t *ctx;
    bson_t *cached_collinfo;
    mongocrypt_status_t *status;
+   _mongocrypt_cache_pair_state_t state;
+   uint32_t owner_id;
 
    crypt = _mongocrypt_tester_mongocrypt ();
    ctx = mongocrypt_ctx_new (crypt);
@@ -851,9 +584,14 @@ _test_encrypt_caches_collinfo (_mongocrypt_tester_t *tester)
    BSON_ASSERT (mongocrypt_ctx_state (ctx) ==
                 MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
    /* The next ctx has the schema cached. */
-   _mongocrypt_cache_get (
-      &crypt->cache_collinfo, "test.test", (void **) &cached_collinfo);
-   BSON_ASSERT (cached_collinfo != NULL);
+   _mongocrypt_cache_get_or_create (&crypt->cache_collinfo,
+                                    "test.test",
+                                    (void **) &cached_collinfo,
+                                    &state,
+                                    ctx->id,
+                                    &owner_id);
+   BSON_ASSERT (state == CACHE_PAIR_DONE);
+   BSON_ASSERT (0 == owner_id);
    bson_destroy (cached_collinfo);
    mongocrypt_ctx_destroy (ctx);
 
@@ -904,75 +642,6 @@ _test_encrypt_caches_keys (_mongocrypt_tester_t *tester)
 
 
 static void
-_test_encrypt_caches_keys_by_alt_name (_mongocrypt_tester_t *tester)
-{
-   mongocrypt_t *crypt;
-   mongocrypt_ctx_t *ctx;
-
-   crypt = _mongocrypt_tester_mongocrypt ();
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   _mongocrypt_tester_run_ctx_to (
-      tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (
-      mongocrypt_ctx_mongo_feed (
-         ctx, TEST_FILE ("./test/data/mongocryptd-reply-key-alt-name.json")),
-      ctx);
-   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_NEED_MONGO_KEYS);
-   ASSERT_OK (
-      mongocrypt_ctx_mongo_feed (
-         ctx, TEST_FILE ("./test/data/key-document-with-alt-name.json")),
-      ctx);
-   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* The next context skips needing keys after being supplied mark documents.
-    */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   _mongocrypt_tester_run_ctx_to (
-      tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (
-      mongocrypt_ctx_mongo_feed (
-         ctx, TEST_FILE ("./test/data/mongocryptd-reply-key-alt-name.json")),
-      ctx);
-   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_READY);
-   mongocrypt_ctx_destroy (ctx);
-
-   /* But a context requesting a different key alt name does not get it from the
-    * cache. */
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   _mongocrypt_tester_run_ctx_to (
-      tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (
-      mongocrypt_ctx_mongo_feed (
-         ctx, TEST_FILE ("./test/data/mongocryptd-reply-key-alt-name2.json")),
-      ctx);
-   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   BSON_ASSERT (mongocrypt_ctx_state (ctx) == MONGOCRYPT_CTX_NEED_MONGO_KEYS);
-   ASSERT_OK (
-      mongocrypt_ctx_mongo_feed (
-         ctx, TEST_FILE ("./test/data/key-document-with-alt-name2.json")),
-      ctx);
-   ASSERT_OK (mongocrypt_ctx_mongo_done (ctx), ctx);
-   _mongocrypt_tester_run_ctx_to (tester, ctx, MONGOCRYPT_CTX_READY);
-   mongocrypt_ctx_destroy (ctx);
-
-   mongocrypt_destroy (crypt);
-}
-
-
-static void
 _test_encrypt_random (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
@@ -994,177 +663,152 @@ _test_encrypt_random (_mongocrypt_tester_t *tester)
    mongocrypt_destroy (crypt);
 }
 
+
+/* Test that a context created on the same NS while another context is fetching
+ * a collinfo waits on that context. */
+void
+_test_encrypt_waits_for_collinfo (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_t *crypt;
+   mongocrypt_ctx_t *ctx1, *ctx2;
+   mongocrypt_status_t *status;
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+   ctx1 = mongocrypt_ctx_new (crypt);
+   mongocrypt_ctx_setopt_cache_noblock (ctx1);
+   status = mongocrypt_status_new ();
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx1, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx1);
+
+   ctx2 = mongocrypt_ctx_new (crypt);
+   mongocrypt_ctx_setopt_cache_noblock (ctx2);
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx2, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx2);
+   /* ctx1 is "in progress" fetching the collinfo. ctx2 transitions to waiting.
+    */
+   BSON_ASSERT (mongocrypt_ctx_state (ctx1) ==
+                MONGOCRYPT_CTX_NEED_MONGO_COLLINFO);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx2) == MONGOCRYPT_CTX_WAITING);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx1) == 0);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == ctx1->id);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == 0);
+
+   /* calling "wait_done" does nothing, since ctx1 is still in progress */
+   ASSERT_OK (mongocrypt_ctx_wait_done (ctx2), ctx2);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx2) == MONGOCRYPT_CTX_WAITING);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == ctx1->id);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == 0);
+
+   /* satisfy ctx1 */
+   _mongocrypt_tester_run_ctx_to (
+      tester, ctx1, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+
+   /* now, calling "wait_done" proceeds. */
+   ASSERT_OK (mongocrypt_ctx_wait_done (ctx2), ctx2);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx2) ==
+                MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
+
+   mongocrypt_ctx_destroy (ctx1);
+   mongocrypt_ctx_destroy (ctx2);
+   mongocrypt_destroy (crypt);
+   mongocrypt_status_destroy (status);
+}
+
+
+/* TODO CDRIVER-2951: move this test to a generic test-mongocrypt-ctx.c
+ * Tests edge cases.
+ */
+/* Test that a context created on the same NS while another context is fetching
+ * a keys waits on that context. */
+void
+_test_encrypt_waits_for_keys (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_t *crypt;
+   mongocrypt_ctx_t *ctx1, *ctx2;
+   mongocrypt_status_t *status;
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+   ctx1 = mongocrypt_ctx_new (crypt);
+   mongocrypt_ctx_setopt_cache_noblock (ctx1);
+   status = mongocrypt_status_new ();
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx1, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx1);
+   _mongocrypt_tester_run_ctx_to (tester, ctx1, MONGOCRYPT_CTX_NEED_MONGO_KEYS);
+   _mongocrypt_cache_dump (&crypt->cache_key);
+
+   ctx2 = mongocrypt_ctx_new (crypt);
+   mongocrypt_ctx_setopt_cache_noblock (ctx2);
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx2, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx2);
+   _mongocrypt_cache_dump (&crypt->cache_key);
+   _mongocrypt_tester_run_ctx_to (tester, ctx2, MONGOCRYPT_CTX_WAITING);
+
+   /* ctx1 is "in progress" fetching the keys. ctx2 transitions to waiting. */
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx1) == 0);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == ctx1->id);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == 0);
+
+   /* calling "wait_done" does nothing, since ctx1 is still in progress */
+   ASSERT_OK (mongocrypt_ctx_wait_done (ctx2), ctx2);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx2) == MONGOCRYPT_CTX_WAITING);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == ctx1->id);
+   BSON_ASSERT (mongocrypt_ctx_next_dependent_ctx_id (ctx2) == 0);
+
+   /* satisfy ctx1 */
+   _mongocrypt_tester_run_ctx_to (tester, ctx1, MONGOCRYPT_CTX_READY);
+
+   _mongocrypt_cache_dump (&crypt->cache_key);
+
+   /* now, calling "wait_done" proceeds. */
+   ASSERT_OK (mongocrypt_ctx_wait_done (ctx2), ctx2);
+   BSON_ASSERT (mongocrypt_ctx_state (ctx2) == MONGOCRYPT_CTX_READY);
+
+   mongocrypt_ctx_destroy (ctx1);
+   mongocrypt_ctx_destroy (ctx2);
+   mongocrypt_destroy (crypt);
+   mongocrypt_status_destroy (status);
+}
+
+
+static void
+_test_ctx_id (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_t *crypt;
+   mongocrypt_ctx_t *ctx, *ctx2;
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+
+   /* Two contexts should have different IDs */
+   ctx = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx);
+   BSON_ASSERT (mongocrypt_ctx_id (ctx) == 1);
+
+   ctx2 = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx2, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx);
+   BSON_ASSERT (mongocrypt_ctx_id (ctx2) == 2);
+
+   /* Recreating a context results in a new ID */
+   mongocrypt_ctx_destroy (ctx);
+   ctx = mongocrypt_ctx_new (crypt);
+   ASSERT_OK (mongocrypt_ctx_encrypt_init (
+                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
+              ctx);
+   BSON_ASSERT (mongocrypt_ctx_id (ctx) == 3);
+
+   mongocrypt_ctx_destroy (ctx);
+   mongocrypt_ctx_destroy (ctx2);
+   mongocrypt_destroy (crypt);
+}
+
 /* TODO CDRIVER-2951 test cache with blocking wait */
-
-static void
-_test_encrypt_is_remote_schema (_mongocrypt_tester_t *tester)
-{
-   mongocrypt_t *crypt;
-   mongocrypt_ctx_t *ctx;
-   mongocrypt_binary_t *bin;
-   bson_t as_bson;
-   bson_iter_t iter;
-
-   bin = mongocrypt_binary_new ();
-
-   /* isRemoteSchema = true for a remote schema. */
-   crypt = _mongocrypt_tester_mongocrypt ();
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   _mongocrypt_tester_run_ctx_to (
-      tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (mongocrypt_ctx_mongo_op (ctx, bin), ctx);
-   _mongocrypt_binary_to_bson (bin, &as_bson);
-   BSON_ASSERT (bson_iter_init_find (&iter, &as_bson, "isRemoteSchema"));
-   BSON_ASSERT (bson_iter_bool (&iter) == true);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_destroy (crypt);
-
-   /* isRemoteSchema = false for a local schema. */
-   crypt = mongocrypt_new ();
-   ASSERT_OK (
-      mongocrypt_setopt_kms_provider_aws (crypt, "example", -1, "example", -1),
-      crypt);
-   ASSERT_OK (mongocrypt_setopt_schema_map (
-                 crypt, TEST_FILE ("./test/data/schema-map.json")),
-              crypt);
-   ASSERT_OK (mongocrypt_init (crypt), crypt);
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (
-                 ctx, "test", -1, TEST_FILE ("./test/example/cmd.json")),
-              ctx);
-   _mongocrypt_tester_run_ctx_to (
-      tester, ctx, MONGOCRYPT_CTX_NEED_MONGO_MARKINGS);
-   ASSERT_OK (mongocrypt_ctx_mongo_op (ctx, bin), ctx);
-   _mongocrypt_binary_to_bson (bin, &as_bson);
-   BSON_ASSERT (bson_iter_init_find (&iter, &as_bson, "isRemoteSchema"));
-   BSON_ASSERT (bson_iter_bool (&iter) == false);
-
-   mongocrypt_binary_destroy (bin);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_destroy (crypt);
-}
-
-static void
-_init_fails (_mongocrypt_tester_t *tester, const char *json, const char *msg)
-{
-   mongocrypt_t *crypt;
-   mongocrypt_ctx_t *ctx;
-
-   crypt = _mongocrypt_tester_mongocrypt ();
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_FAILS (
-      mongocrypt_ctx_encrypt_init (ctx, "test", -1, TEST_BSON (json)),
-      ctx,
-      msg);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_destroy (crypt);
-}
-
-
-static void
-_init_ok (_mongocrypt_tester_t *tester, const char *json)
-{
-   mongocrypt_t *crypt;
-   mongocrypt_ctx_t *ctx;
-   mongocrypt_binary_t *filter;
-
-   crypt = _mongocrypt_tester_mongocrypt ();
-   ctx = mongocrypt_ctx_new (crypt);
-
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (ctx, "test", -1, TEST_BSON (json)),
-              ctx);
-   /* verify the collection in the filter is 'coll' */
-   BSON_ASSERT (MONGOCRYPT_CTX_NEED_MONGO_COLLINFO ==
-                mongocrypt_ctx_state (ctx));
-
-   filter = mongocrypt_binary_new ();
-   ASSERT_OK (mongocrypt_ctx_mongo_op (ctx, filter), ctx);
-   _assert_bin_bson_equal (filter, TEST_BSON ("{'name': 'coll'}"));
-
-   mongocrypt_binary_destroy (filter);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_destroy (crypt);
-}
-
-
-static void
-_init_bypass (_mongocrypt_tester_t *tester, const char *json)
-{
-   mongocrypt_t *crypt;
-   mongocrypt_ctx_t *ctx;
-   mongocrypt_binary_t *bin;
-
-   bin = mongocrypt_binary_new ();
-   crypt = _mongocrypt_tester_mongocrypt ();
-   ctx = mongocrypt_ctx_new (crypt);
-   ASSERT_OK (mongocrypt_ctx_encrypt_init (ctx, "test", -1, TEST_BSON (json)),
-              ctx);
-   BSON_ASSERT (MONGOCRYPT_CTX_READY == mongocrypt_ctx_state (ctx));
-   ASSERT_OK (mongocrypt_ctx_finalize (ctx, bin), ctx);
-   _assert_bin_bson_equal (bin, TEST_BSON (json));
-
-   mongocrypt_binary_destroy (bin);
-   mongocrypt_ctx_destroy (ctx);
-   mongocrypt_destroy (crypt);
-}
-
-
-static void
-_test_encrypt_init_each_cmd (_mongocrypt_tester_t *tester)
-{
-   /* collection aggregate is ok */
-   _init_ok (tester, "{'aggregate': 'coll'}");
-   /* db agg is not ok */
-   _init_fails (
-      tester,
-      "{'aggregate': 1}",
-      "non-collection command not supported for auto encryption: aggregate");
-   _init_ok (tester, "{'count': 'coll'}");
-   _init_ok (tester, "{'distinct': 'coll'}");
-   _init_ok (tester, "{'delete': 'coll'}");
-   _init_ok (tester, "{'find': 'coll'}");
-   _init_ok (tester, "{'findAndModify': 'coll'}");
-   _init_bypass (tester, "{'getMore': 'coll'}");
-   _init_ok (tester, "{'insert': 'coll'}");
-   _init_ok (tester, "{'update': 'coll'}");
-   _init_bypass (tester, "{'authenticate': 1}");
-   _init_bypass (tester, "{'getnonce': 1}");
-   _init_bypass (tester, "{'logout': 1}");
-   _init_bypass (tester, "{'isMaster': 1}");
-   _init_bypass (tester, "{'abortTransaction': 1}");
-   _init_bypass (tester, "{'commitTransaction': 1}");
-   _init_bypass (tester, "{'endSessions': 1}");
-   _init_bypass (tester, "{'startSession': 1}");
-   _init_bypass (tester, "{'create': 1}");
-   _init_bypass (tester, "{'createIndexes': 1}");
-   _init_bypass (tester, "{'drop': 1}");
-   _init_bypass (tester, "{'dropDatabase': 1}");
-   _init_bypass (tester, "{'killCursors': 1}");
-   _init_bypass (tester, "{'listCollections': 1}");
-   _init_bypass (tester, "{'listDatabases': 1}");
-   _init_bypass (tester, "{'listIndexes': 1}");
-   _init_bypass (tester, "{'renameCollection': 'coll'}");
-   _init_ok (tester, "{'explain': { 'find': 'coll' }}");
-   _init_fails (tester, "{'explain': { } }", "invalid empty BSON");
-   _init_fails (tester,
-                "{'explain': { 'aggregate': 1 }}",
-                "non-collection command not supported for auto encryption");
-   _init_bypass (tester, "{'ping': 1}");
-   _init_bypass (tester, "{'saslStart': 1}");
-   _init_bypass (tester, "{'saslContinue': 1}");
-   _init_fails (tester,
-                "{'fakecmd': 'coll'}",
-                "command not supported for auto encryption: fakecmd");
-   /* fails for eligible command with no collection name. */
-   _init_fails (
-      tester,
-      "{'insert': 1}",
-      "non-collection command not supported for auto encryption: insert");
-   _init_fails (tester, "{}", "invalid empty BSON");
-}
 
 
 void
@@ -1181,8 +825,8 @@ _mongocrypt_tester_install_ctx_encrypt (_mongocrypt_tester_t *tester)
    INSTALL_TEST (_test_local_schema);
    INSTALL_TEST (_test_encrypt_caches_collinfo);
    INSTALL_TEST (_test_encrypt_caches_keys);
-   INSTALL_TEST (_test_encrypt_caches_keys_by_alt_name);
    INSTALL_TEST (_test_encrypt_random);
-   INSTALL_TEST (_test_encrypt_is_remote_schema);
-   INSTALL_TEST (_test_encrypt_init_each_cmd);
+   INSTALL_TEST (_test_ctx_id);
+   INSTALL_TEST (_test_encrypt_waits_for_collinfo);
+   INSTALL_TEST (_test_encrypt_waits_for_keys);
 }

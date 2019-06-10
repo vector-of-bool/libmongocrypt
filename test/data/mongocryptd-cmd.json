@@ -19,6 +19,5 @@
             }
         }, 
         "bsonType": "object"
-    },
-    "isRemoteSchema": true
+    }
 }

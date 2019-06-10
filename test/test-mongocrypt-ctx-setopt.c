@@ -40,6 +40,11 @@ static char invalid_utf8[] = {(char) 0x80, (char) 0x00};
 #define MASTERKEY_LOCAL_FAILS(msg) \
    ASSERT_FAILS (mongocrypt_ctx_setopt_masterkey_local (ctx), ctx, msg);
 
+#define SCHEMA_OK(schema) \
+   ASSERT_OK (mongocrypt_ctx_setopt_schema (ctx, schema), ctx);
+#define SCHEMA_FAILS(schema, msg) \
+   ASSERT_FAILS (mongocrypt_ctx_setopt_schema (ctx, schema), ctx, msg);
+
 #define KEY_ID_OK(key_id) \
    ASSERT_OK (mongocrypt_ctx_setopt_key_id (ctx, key_id), ctx);
 #define KEY_ID_FAILS(key_id, msg) \
@@ -155,6 +160,39 @@ _test_setopt_masterkey_local (_mongocrypt_tester_t *tester)
    REFRESH;
    _mongocrypt_ctx_fail_w_msg (ctx, "test");
    MASTERKEY_LOCAL_FAILS ("test");
+
+   mongocrypt_ctx_destroy (ctx);
+   mongocrypt_destroy (crypt);
+}
+
+
+static void
+_test_setopt_schema (_mongocrypt_tester_t *tester)
+{
+   mongocrypt_t *crypt;
+   mongocrypt_ctx_t *ctx = NULL;
+
+   crypt = _mongocrypt_tester_mongocrypt ();
+
+   /* Test double setting. */
+   REFRESH;
+   SCHEMA_OK (TEST_FILE ("./test/data/schema.json"));
+   SCHEMA_FAILS (TEST_FILE ("./test/data/schema.json"), "already set schema");
+
+   /* Test NULL/empty input */
+   REFRESH;
+   SCHEMA_FAILS (NULL, "passed null schema");
+
+   REFRESH;
+   SCHEMA_FAILS (TEST_BIN (0), "passed null schema");
+
+   /* Test malformed BSON */
+   REFRESH;
+   SCHEMA_FAILS (TEST_BIN (10), "invalid bson");
+
+   REFRESH;
+   _mongocrypt_ctx_fail_w_msg (ctx, "test");
+   SCHEMA_FAILS (TEST_FILE ("./test/data/schema.json"), "test");
 
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt);
@@ -281,9 +319,10 @@ _test_setopt_for_datakey (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx = NULL;
-   mongocrypt_binary_t *uuid;
+   mongocrypt_binary_t *schema, *uuid;
 
    crypt = _mongocrypt_tester_mongocrypt ();
+   schema = TEST_FILE ("./test/data/schema.json");
    uuid = TEST_BIN (16);
 
    /* Test required and prohibited options. */
@@ -295,6 +334,11 @@ _test_setopt_for_datakey (_mongocrypt_tester_t *tester)
    DATAKEY_INIT_OK;
 
    /* Test each prohibited option. */
+   REFRESH;
+   MASTERKEY_AWS_OK ("region", -1, "cmk", -1);
+   SCHEMA_OK (schema);
+   DATAKEY_INIT_FAILS ("schema prohibited");
+
    REFRESH;
    MASTERKEY_AWS_OK ("region", -1, "cmk", -1);
    KEY_ID_OK (uuid);
@@ -322,9 +366,10 @@ _test_setopt_for_encrypt (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx = NULL;
-   mongocrypt_binary_t *uuid, *cmd;
+   mongocrypt_binary_t *schema, *uuid, *cmd;
 
    crypt = _mongocrypt_tester_mongocrypt ();
+   schema = TEST_FILE ("./test/data/schema.json");
    cmd = TEST_FILE ("./test/example/cmd.json");
    uuid = TEST_BIN (16);
 
@@ -339,6 +384,10 @@ _test_setopt_for_encrypt (_mongocrypt_tester_t *tester)
    REFRESH;
    MASTERKEY_LOCAL_OK;
    ENCRYPT_INIT_FAILS ("a", -1, cmd, "master key prohibited");
+
+   REFRESH;
+   SCHEMA_OK (schema);
+   ENCRYPT_INIT_OK ("a", -1, cmd);
 
    REFRESH;
    KEY_ID_OK (uuid);
@@ -358,7 +407,7 @@ _test_setopt_for_encrypt (_mongocrypt_tester_t *tester)
    /* Test setting options after init. */
    REFRESH;
    ENCRYPT_INIT_OK ("a", -1, cmd);
-   MASTERKEY_LOCAL_FAILS ("cannot set options after init")
+   SCHEMA_FAILS (schema, "cannot set options after init");
 
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt);
@@ -370,9 +419,10 @@ _test_setopt_for_explicit_encrypt (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx = NULL;
-   mongocrypt_binary_t *bson, *uuid;
+   mongocrypt_binary_t *bson, *schema, *uuid;
 
    crypt = _mongocrypt_tester_mongocrypt ();
+   schema = TEST_FILE ("./test/data/schema.json");
    uuid = TEST_BIN (16);
    bson = TEST_BSON ("{'v': 'hello'}");
 
@@ -406,6 +456,12 @@ _test_setopt_for_explicit_encrypt (_mongocrypt_tester_t *tester)
    ALGORITHM_OK (RAND, -1);
    MASTERKEY_LOCAL_OK;
    EX_ENCRYPT_INIT_FAILS (bson, "master key prohibited");
+
+   REFRESH;
+   KEY_ID_OK (uuid);
+   ALGORITHM_OK (RAND, -1);
+   SCHEMA_OK (schema);
+   EX_ENCRYPT_INIT_FAILS (bson, "schema prohibited");
 
    REFRESH;
    KEY_ID_OK (uuid);
@@ -456,9 +512,10 @@ _test_setopt_for_decrypt (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx = NULL;
-   mongocrypt_binary_t *bson, *uuid;
+   mongocrypt_binary_t *bson, *schema, *uuid;
 
    crypt = _mongocrypt_tester_mongocrypt ();
+   schema = TEST_FILE ("./test/data/schema.json");
    uuid = TEST_BIN (16);
    bson = TEST_BSON ("{'a': 1}");
 
@@ -475,6 +532,10 @@ _test_setopt_for_decrypt (_mongocrypt_tester_t *tester)
    DECRYPT_INIT_FAILS (bson, "master key prohibited");
 
    REFRESH;
+   SCHEMA_OK (schema);
+   DECRYPT_INIT_FAILS (bson, "schema prohibited");
+
+   REFRESH;
    KEY_ID_OK (uuid);
    DECRYPT_INIT_FAILS (bson, "key id and alt name prohibited");
 
@@ -489,7 +550,7 @@ _test_setopt_for_decrypt (_mongocrypt_tester_t *tester)
    /* Test setting options after init. */
    REFRESH;
    DECRYPT_INIT_OK (bson);
-   MASTERKEY_LOCAL_FAILS ("cannot set options after init");
+   SCHEMA_FAILS (schema, "cannot set options after init");
 
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt);
@@ -501,9 +562,10 @@ _test_setopt_for_explicit_decrypt (_mongocrypt_tester_t *tester)
 {
    mongocrypt_t *crypt;
    mongocrypt_ctx_t *ctx = NULL;
-   mongocrypt_binary_t *bson, *uuid;
+   mongocrypt_binary_t *bson, *schema, *uuid;
 
    crypt = _mongocrypt_tester_mongocrypt ();
+   schema = TEST_FILE ("./test/data/schema.json");
    uuid = TEST_BIN (16);
    bson = TEST_FILE ("./test/data/explicit-decryption-input.json");
 
@@ -520,6 +582,10 @@ _test_setopt_for_explicit_decrypt (_mongocrypt_tester_t *tester)
    EX_DECRYPT_INIT_FAILS (bson, "master key prohibited");
 
    REFRESH;
+   SCHEMA_OK (schema);
+   EX_DECRYPT_INIT_FAILS (bson, "schema prohibited");
+
+   REFRESH;
    KEY_ID_OK (uuid);
    EX_DECRYPT_INIT_FAILS (bson, "key id and alt name prohibited");
 
@@ -531,9 +597,15 @@ _test_setopt_for_explicit_decrypt (_mongocrypt_tester_t *tester)
    ALGORITHM_OK (DET, -1);
    EX_DECRYPT_INIT_FAILS (bson, "algorithm prohibited");
 
+   /* Test setting options after init. */
+   REFRESH;
+   EX_DECRYPT_INIT_OK (bson);
+   SCHEMA_FAILS (schema, "cannot set options after init");
+
    mongocrypt_ctx_destroy (ctx);
    mongocrypt_destroy (crypt);
 }
+/* TODO CDRIVER-2951 test mongocrypt_ctx_setopt_cache_noblock */
 
 
 static void
@@ -542,6 +614,7 @@ _test_options (_mongocrypt_tester_t *tester)
    /* Test individual options */
    _test_setopt_masterkey_aws (tester);
    _test_setopt_masterkey_local (tester);
+   _test_setopt_schema (tester);
    _test_setopt_key_id (tester);
    _test_setopt_algorithm (tester);
    _test_setopt_key_alt_name (tester);

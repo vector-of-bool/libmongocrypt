@@ -21,7 +21,6 @@ import com.mongodb.crypt.capi.CAPI.mongocrypt_binary_t;
 import com.mongodb.crypt.capi.CAPI.mongocrypt_ctx_t;
 import com.mongodb.crypt.capi.CAPI.mongocrypt_kms_ctx_t;
 import org.bson.BsonDocument;
-import org.bson.RawBsonDocument;
 
 import static com.mongodb.crypt.capi.CAPI.mongocrypt_binary_destroy;
 import static com.mongodb.crypt.capi.CAPI.mongocrypt_binary_new;
@@ -58,7 +57,7 @@ class MongoCryptContextImpl implements MongoCryptContext {
     }
 
     @Override
-    public RawBsonDocument getMongoOperation() {
+    public BsonDocument getMongoOperation() {
         isTrue("open", !closed);
         mongocrypt_binary_t binary = mongocrypt_binary_new();
 

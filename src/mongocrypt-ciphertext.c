@@ -48,21 +48,9 @@ _mongocrypt_ciphertext_parse_unowned (_mongocrypt_buffer_t *in,
       }
    */
 
-
-   if (!ciphertext) {
-      CLIENT_ERR ("ciphertext cannot be null");
-      return false;
-   }
-
-   if (!in) {
-      CLIENT_ERR ("in parameter cannot be null");
-      return false;
-   }
-
-   if (!status) {
-      CLIENT_ERR ("status cannot be null");
-      return false;
-   }
+   BSON_ASSERT (in);
+   BSON_ASSERT (ciphertext);
+   BSON_ASSERT (status);
 
    offset = 0;
 
@@ -102,7 +90,7 @@ _mongocrypt_ciphertext_parse_unowned (_mongocrypt_buffer_t *in,
    return true;
 }
 
-bool
+void
 _mongocrypt_serialize_ciphertext (_mongocrypt_ciphertext_t *ciphertext,
                                   _mongocrypt_buffer_t *out)
 {
@@ -117,13 +105,10 @@ _mongocrypt_serialize_ciphertext (_mongocrypt_ciphertext_t *ciphertext,
       }
    */
 
-   if (!ciphertext || !out) {
-      return false;
-   }
-
-   if (ciphertext->key_id.len != 16) {
-      return false;
-   }
+   /* TODO CDRIVER-2988 return an error here instead of aborting. */
+   BSON_ASSERT (ciphertext);
+   BSON_ASSERT (out);
+   BSON_ASSERT (ciphertext->key_id.len == 16);
 
    _mongocrypt_buffer_init (out);
    offset = 0;
@@ -142,8 +127,6 @@ _mongocrypt_serialize_ciphertext (_mongocrypt_ciphertext_t *ciphertext,
 
    memcpy (out->data + offset, ciphertext->data.data, ciphertext->data.len);
    offset += ciphertext->data.len;
-
-   return true;
 }
 
 
@@ -158,10 +141,7 @@ _mongocrypt_ciphertext_serialize_associated_data (
 {
    int32_t bytes_written;
 
-   if (!out) {
-      return false;
-   }
-
+   BSON_ASSERT (out);
    _mongocrypt_buffer_init (out);
 
    if (!ciphertext->original_bson_type) {

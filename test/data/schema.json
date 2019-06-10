@@ -9,7 +9,13 @@
           }
         },
         "type": "string",
-        "algorithm": "AEAD_AES_CBC_HMAC_SHA512-Deterministic"
+        "algorithm": "Deterministic",
+        "iv": {
+          "$binary": {
+            "base64": "aWlpaWlpaWlpaWlpaWlpaQ==",
+            "subType": "00"
+          }
+        }
       }
     }
   },

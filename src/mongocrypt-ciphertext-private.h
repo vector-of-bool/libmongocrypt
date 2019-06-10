@@ -18,7 +18,6 @@
 #define MONGOCRYPT_CIPHERTEXT_PRIVATE_H
 
 #include "mongocrypt-buffer-private.h"
-#include "mongocrypt.h"
 
 typedef struct {
    _mongocrypt_buffer_t key_id;
@@ -41,13 +40,12 @@ _mongocrypt_ciphertext_parse_unowned (_mongocrypt_buffer_t *in,
                                       _mongocrypt_ciphertext_t *ciphertext,
                                       mongocrypt_status_t *status);
 
-bool
+void
 _mongocrypt_serialize_ciphertext (_mongocrypt_ciphertext_t *ciphertext,
                                   _mongocrypt_buffer_t *out);
 
 bool
-_mongocrypt_ciphertext_serialize_associated_data (
-   _mongocrypt_ciphertext_t *ciphertext, _mongocrypt_buffer_t *out);
+_mongocrypt_ciphertext_serialize_associated_data (_mongocrypt_ciphertext_t *ciphertext, _mongocrypt_buffer_t *out);
 
 
 #endif /* MONGOCRYPT_CIPHERTEXT_PRIVATE_H */

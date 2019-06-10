@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+#include "mongocrypt-private.h"
 #include "mongocrypt-ciphertext-private.h"
 #include "mongocrypt-crypto-private.h"
 #include "mongocrypt-ctx-private.h"
-#include "mongocrypt-key-broker-private.h"
 #include "mongocrypt-marking-private.h"
+#include "mongocrypt-key-broker-private.h"
 
 /* Construct the list collections command to send. */
 static bool
@@ -80,8 +81,11 @@ _mongo_feed_collinfo (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *in)
    }
 
    /* Cache the received collinfo. */
-   if (!_mongocrypt_cache_add_copy (
-          &ctx->crypt->cache_collinfo, ectx->ns, &as_bson, ctx->status)) {
+   if (!_mongocrypt_cache_add_copy (&ctx->crypt->cache_collinfo,
+                                    ectx->ns,
+                                    &as_bson,
+                                    ctx->id,
+                                    ctx->status)) {
       return _mongocrypt_ctx_fail (ctx);
    }
 
@@ -125,10 +129,7 @@ _mongo_op_markings (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 
       bson_copy_to (&cmd_bson, &mongocryptd_cmd_bson);
       BSON_APPEND_DOCUMENT (&mongocryptd_cmd_bson, "jsonSchema", &schema_bson);
-
-      /* if a local schema was not set, set isRemoteSchema=true */
-      BSON_APPEND_BOOL (
-         &mongocryptd_cmd_bson, "isRemoteSchema", !ectx->used_local_schema);
+      /* TODO: CDRIVER-3149 append isRemoteSchema. */
       _mongocrypt_buffer_steal_from_bson (&ectx->mongocryptd_cmd,
                                           &mongocryptd_cmd_bson);
 
@@ -192,7 +193,7 @@ _mongo_feed_markings (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *in)
       /* TODO: update cache: this schema does not require encryption. */
 
       /* If using a local schema, warn if there are no encrypted fields. */
-      if (!ectx->used_local_schema) {
+      if (!_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
          _mongocrypt_log (
             &ctx->crypt->log,
             MONGOCRYPT_LOG_LEVEL_WARNING,
@@ -253,11 +254,7 @@ _marking_to_bson_value (void *ctx,
       goto fail;
    }
 
-   if (!_mongocrypt_serialize_ciphertext (&ciphertext,
-                                          &serialized_ciphertext)) {
-      CLIENT_ERR ("malformed ciphertext");
-      goto fail;
-   };
+   _mongocrypt_serialize_ciphertext (&ciphertext, &serialized_ciphertext);
 
    /* ownership of serialized_ciphertext is transferred to caller. */
    out->value_type = BSON_TYPE_BINARY;
@@ -301,15 +298,7 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
 
    if (!ectx->explicit) {
-      if (ctx->nothing_to_do) {
-         _mongocrypt_buffer_to_binary (&ectx->original_cmd, out);
-         ctx->state = MONGOCRYPT_CTX_DONE;
-         return true;
-      }
-      if (!_mongocrypt_buffer_to_bson (&ectx->marked_cmd, &as_bson)) {
-         return _mongocrypt_ctx_fail_w_msg (ctx, "malformed bson");
-      }
-
+      _mongocrypt_buffer_to_bson (&ectx->marked_cmd, &as_bson);
       bson_iter_init (&iter, &as_bson);
       bson_init (&converted);
       if (!_mongocrypt_transform_binary_in_bson (
@@ -328,10 +317,7 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 
       _mongocrypt_marking_init (&marking);
 
-      if (!_mongocrypt_buffer_to_bson (&ectx->original_cmd, &as_bson)) {
-         return _mongocrypt_ctx_fail_w_msg (ctx, "malformed bson");
-      }
-
+      _mongocrypt_buffer_to_bson (&ectx->original_cmd, &as_bson);
       if (!bson_iter_init_find (&iter, &as_bson, "v")) {
          return _mongocrypt_ctx_fail_w_msg (ctx,
                                             "invalid msg, must contain 'v'");
@@ -369,6 +355,10 @@ _cleanup (mongocrypt_ctx_t *ctx)
 {
    _mongocrypt_ctx_encrypt_t *ectx;
 
+   /* Removing any pending cache entries in the cache this context
+    * is responsible for fetching. */
+   _mongocrypt_cache_remove_by_owner (&ctx->crypt->cache_collinfo, ctx->id);
+
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
    bson_free (ectx->ns);
    bson_free (ectx->db_name);
@@ -383,62 +373,39 @@ _cleanup (mongocrypt_ctx_t *ctx)
 
 
 static bool
-_try_schema_from_schema_map (mongocrypt_ctx_t *ctx)
-{
-   mongocrypt_t *crypt;
-   _mongocrypt_ctx_encrypt_t *ectx;
-   bson_t schema_map;
-   bson_iter_t iter;
-
-   crypt = ctx->crypt;
-   ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
-
-   if (_mongocrypt_buffer_empty (&crypt->opts.schema_map)) {
-      /* No schema map set. */
-      return true;
-   }
-
-   if (!_mongocrypt_buffer_to_bson (&crypt->opts.schema_map, &schema_map)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "malformed schema map");
-   }
-
-   if (bson_iter_init_find (&iter, &schema_map, ectx->ns)) {
-      if (!_mongocrypt_buffer_copy_from_document_iter (&ectx->schema, &iter)) {
-         return _mongocrypt_ctx_fail_w_msg (ctx, "malformed schema map");
-      }
-      ectx->used_local_schema = true;
-      ctx->state = MONGOCRYPT_CTX_NEED_MONGO_MARKINGS;
-   }
-
-   /* No schema found in map. */
-   return true;
-}
-
-
-static bool
-_try_schema_from_cache (mongocrypt_ctx_t *ctx)
+_try_collinfo_from_cache (mongocrypt_ctx_t *ctx)
 {
    _mongocrypt_ctx_encrypt_t *ectx;
    bson_t *collinfo = NULL;
 
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
 
-   /* Otherwise, we need a remote schema. Check if we have a response to
-    * listCollections cached. */
-   if (!_mongocrypt_cache_get (&ctx->crypt->cache_collinfo,
-                               ectx->ns /* null terminated */,
-                               (void **) &collinfo)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "failed to retrieve from cache");
-   }
+   /* reset */
+   ectx->collinfo_owner = 0;
+   ectx->collinfo_state = CACHE_PAIR_PENDING;
+   ectx->waiting_for_collinfo = false;
 
-   if (collinfo) {
+   /* Otherwise, we need a remote schema. Check if we have a response to
+      * listCollections cached. */
+   _mongocrypt_cache_get_or_create (&ctx->crypt->cache_collinfo,
+                                    ectx->ns /* null terminated */,
+                                    (void **) &collinfo,
+                                    &ectx->collinfo_state,
+                                    ctx->id,
+                                    &ectx->collinfo_owner);
+
+   if (ectx->collinfo_state == CACHE_PAIR_DONE) {
       if (!_set_schema_from_collinfo (ctx, collinfo)) {
          return _mongocrypt_ctx_fail (ctx);
       }
       ctx->state = MONGOCRYPT_CTX_NEED_MONGO_MARKINGS;
-   } else {
+   } else if (ectx->collinfo_owner == ctx->id) {
       /* we need to get it. */
       ctx->state = MONGOCRYPT_CTX_NEED_MONGO_COLLINFO;
+   } else {
+      /* waiting on another context. */
+      ectx->waiting_for_collinfo = true;
+      ctx->state = MONGOCRYPT_CTX_WAITING;
    }
 
    bson_destroy (collinfo);
@@ -446,11 +413,54 @@ _try_schema_from_cache (mongocrypt_ctx_t *ctx)
 }
 
 
+static bool
+_wait_done (mongocrypt_ctx_t *ctx)
+{
+   _mongocrypt_ctx_encrypt_t *ectx;
+
+   ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
+
+   if (ectx->waiting_for_collinfo) {
+      if (ctx->cache_noblock) {
+         return _try_collinfo_from_cache (ctx);
+      }
+      if (!_mongocrypt_cache_wait (&ctx->crypt->cache_collinfo, ctx->status)) {
+         return _mongocrypt_ctx_fail (ctx);
+      }
+      return _try_collinfo_from_cache (ctx);
+   } else {
+      if (!_mongocrypt_key_broker_check_cache_and_wait (&ctx->kb,
+                                                        !ctx->cache_noblock)) {
+         BSON_ASSERT (!_mongocrypt_key_broker_status (&ctx->kb, ctx->status));
+         return _mongocrypt_ctx_fail (ctx);
+      }
+      return _mongocrypt_ctx_state_from_key_broker (ctx);
+   }
+}
+
+
+static uint32_t
+_next_dependent_ctx_id (mongocrypt_ctx_t *ctx)
+{
+   _mongocrypt_ctx_encrypt_t *ectx;
+
+   ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
+   if (ectx->waiting_for_collinfo) {
+      uint32_t tmp;
+
+      tmp = ectx->collinfo_owner;
+      ectx->collinfo_owner = 0;
+      return tmp;
+   } else {
+      return _mongocrypt_key_broker_next_ctx_id (&ctx->kb);
+   }
+}
+
+
 bool
 mongocrypt_ctx_explicit_encrypt_init (mongocrypt_ctx_t *ctx,
                                       mongocrypt_binary_t *msg)
 {
-   char *msg_val;
    _mongocrypt_ctx_encrypt_t *ectx;
    bson_t as_bson;
    bson_iter_t iter;
@@ -469,6 +479,8 @@ mongocrypt_ctx_explicit_encrypt_init (mongocrypt_ctx_t *ctx,
    ectx->explicit = true;
    ctx->vtable.finalize = _finalize;
    ctx->vtable.cleanup = _cleanup;
+   ctx->vtable.wait_done = _wait_done;
+   ctx->vtable.next_dependent_ctx_id = _next_dependent_ctx_id;
 
    if (!msg || !msg->data) {
       return _mongocrypt_ctx_fail_w_msg (
@@ -492,39 +504,13 @@ mongocrypt_ctx_explicit_encrypt_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "msg must be bson");
    }
 
-   msg_val = _mongocrypt_new_json_string_from_binary (msg);
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\")",
-                    BSON_FUNC,
-                    "msg",
-                    msg_val);
-   bson_free (msg_val);
-
    if (!bson_iter_init_find (&iter, &as_bson, "v")) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid msg, must contain 'v'");
    }
 
-   /* Check for prohibited types. */
-   if (BSON_ITER_HOLDS_NULL (&iter) || BSON_ITER_HOLDS_MINKEY (&iter) ||
-       BSON_ITER_HOLDS_MAXKEY (&iter) || BSON_ITER_HOLDS_UNDEFINED (&iter)) {
-      return _mongocrypt_ctx_fail_w_msg (ctx,
-                                         "BSON type invalid for encryption");
-   }
-   /* Check for prohibited deterministic types */
-   if (ctx->opts.algorithm == MONGOCRYPT_ENCRYPTION_ALGORITHM_DETERMINISTIC) {
-      if (BSON_ITER_HOLDS_DOCUMENT (&iter) || BSON_ITER_HOLDS_ARRAY (&iter) ||
-          BSON_ITER_HOLDS_CODEWSCOPE (&iter) ||
-          BSON_ITER_HOLDS_DOUBLE (&iter) ||
-          BSON_ITER_HOLDS_DECIMAL128 (&iter) || BSON_ITER_HOLDS_BOOL (&iter)) {
-         return _mongocrypt_ctx_fail_w_msg (
-            ctx, "BSON type invalid for deterministic encryption");
-      }
-   }
-
-
    return _mongocrypt_ctx_state_from_key_broker (ctx);
 }
+
 
 static bool
 _check_cmd_for_auto_encrypt (mongocrypt_binary_t *cmd,
@@ -533,9 +519,8 @@ _check_cmd_for_auto_encrypt (mongocrypt_binary_t *cmd,
                              mongocrypt_status_t *status)
 {
    bson_t as_bson;
-   bson_iter_t iter, ns_iter;
+   bson_iter_t iter;
    const char *cmd_name;
-   bool eligible = false;
 
    *bypass = false;
 
@@ -553,112 +538,96 @@ _check_cmd_for_auto_encrypt (mongocrypt_binary_t *cmd,
 
    cmd_name = bson_iter_key (&iter);
 
-   /* get the collection name (or NULL if database/client command). */
-   if (0 == strcmp (cmd_name, "explain")) {
-      if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
-         CLIENT_ERR ("explain value is not a document");
-         return false;
-      }
-      if (!bson_iter_recurse (&iter, &ns_iter)) {
-         CLIENT_ERR ("malformed BSON for encrypt command");
-         return false;
-      }
-      if (!bson_iter_next (&ns_iter)) {
-         CLIENT_ERR ("invalid empty BSON");
-         return false;
-      }
+   if (BSON_ITER_HOLDS_UTF8 (&iter)) {
+      *collname = bson_strdup (bson_iter_utf8 (&iter, NULL));
    } else {
-      memcpy (&ns_iter, &iter, sizeof (iter));
+      *collname = bson_strdup ("");
    }
 
-   if (BSON_ITER_HOLDS_UTF8 (&ns_iter)) {
-      *collname = bson_strdup (bson_iter_utf8 (&ns_iter, NULL));
-   } else {
-      *collname = NULL;
-   }
-
-   /* check if command is eligible for auto encryption, bypassed, or ineligible.
-    */
-   if (0 == strcmp (cmd_name, "aggregate")) {
-      /* collection level aggregate ok, database/client is not. */
-      eligible = true;
+   /* aggregate ok only for collections, ie aggregate:"coll", not aggregate:1 */
+   if (0 == strcmp (cmd_name, "aggregate") && BSON_ITER_HOLDS_UTF8 (&iter)) {
+      return true;
    } else if (0 == strcmp (cmd_name, "count")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "distinct")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "delete")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "find")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "findAndModify")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "getMore")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "insert")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "update")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "authenticate")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "getnonce")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "logout")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "isMaster")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "abortTransaction")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "commitTransaction")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "endSessions")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "startSession")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "create")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "createIndexes")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "drop")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "dropDatabase")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "dropIndexes")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "killCursors")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "listCollections")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "listDatabases")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "listIndexes")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "renameCollection")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "explain")) {
-      eligible = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "ping")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "saslStart")) {
       *bypass = true;
+      return true;
    } else if (0 == strcmp (cmd_name, "saslContinue")) {
       *bypass = true;
-   }
-
-   /* database/client commands are ineligible. */
-   if (eligible) {
-      if (!*collname) {
-         CLIENT_ERR (
-            "non-collection command not supported for auto encryption: %s",
-            cmd_name);
-         return false;
-      }
-      if (0 == strlen (*collname)) {
-         CLIENT_ERR ("empty collection name on command: %s", cmd_name);
-         return false;
-      }
-   }
-
-   if (eligible || *bypass) {
       return true;
    }
 
@@ -696,13 +665,13 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
    ctx->vtable.mongo_op_collinfo = _mongo_op_collinfo;
    ctx->vtable.mongo_feed_collinfo = _mongo_feed_collinfo;
    ctx->vtable.mongo_done_collinfo = _mongo_done_collinfo;
+   ctx->vtable.wait_done = _wait_done;
+   ctx->vtable.next_dependent_ctx_id = _next_dependent_ctx_id;
 
 
    if (!cmd || !cmd->data) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid command");
    }
-
-   _mongocrypt_buffer_copy_from_binary (&ectx->original_cmd, cmd);
 
    if (!_check_cmd_for_auto_encrypt (
           cmd, &bypass, &ectx->coll_name, ctx->status)) {
@@ -710,21 +679,13 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
    }
 
    if (bypass) {
-      ctx->nothing_to_do = true;
-      ctx->state = MONGOCRYPT_CTX_READY;
+      ctx->state = MONGOCRYPT_CTX_NOTHING_TO_DO;
       return true;
    }
 
-   /* if _check_cmd_for_auto_encrypt did not bypass or error, a collection name
-    * must have been set. */
-   if (!ectx->coll_name) {
-      return _mongocrypt_ctx_fail_w_msg (
-         ctx,
-         "unexpected error: did not bypass or error but no collection name");
-   }
+   _mongocrypt_buffer_copy_from_binary (&ectx->original_cmd, cmd);
 
-   if (!_mongocrypt_validate_and_copy_string (db, db_len, &ectx->db_name) ||
-       0 == strlen (ectx->db_name)) {
+   if (!_mongocrypt_validate_and_copy_string (db, db_len, &ectx->db_name)) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid db");
    }
 
@@ -745,21 +706,12 @@ mongocrypt_ctx_encrypt_init (mongocrypt_ctx_t *ctx,
          ctx, "algorithm must not be set for auto encryption");
    }
 
-   /* Check if we have a local schema from schema_map */
-   if (!_try_schema_from_schema_map (ctx)) {
-      return false;
-   }
-
-   /* If we didn't have a local schema, try the cache. */
-   if (_mongocrypt_buffer_empty (&ectx->schema)) {
-      if (!_try_schema_from_cache (ctx)) {
-         return false;
-      }
-   }
-
-   /* Otherwise, we need the the driver to fetch the schema. */
-   if (_mongocrypt_buffer_empty (&ectx->schema)) {
-      ctx->state = MONGOCRYPT_CTX_NEED_MONGO_COLLINFO;
+   /* Check if a local schema was provided. */
+   if (!_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
+      _mongocrypt_buffer_steal (&ectx->schema, &ctx->opts.local_schema);
+      ctx->state = MONGOCRYPT_CTX_NEED_MONGO_MARKINGS;
+   } else {
+      return _try_collinfo_from_cache (ctx);
    }
    return true;
 }

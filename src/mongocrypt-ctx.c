@@ -16,7 +16,9 @@
 
 #include <bson/bson.h>
 
+#include "mongocrypt.h"
 #include "mongocrypt-ctx-private.h"
+#include "mongocrypt-private.h"
 #include "mongocrypt-key-broker-private.h"
 
 #define ALGORITHM_DETERMINISTIC "AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic"
@@ -86,21 +88,6 @@ bool
 mongocrypt_ctx_setopt_key_id (mongocrypt_ctx_t *ctx,
                               mongocrypt_binary_t *key_id)
 {
-   char *key_id_val;
-   BSON_ASSERT (ctx);
-
-   if (key_id && key_id->data) {
-      key_id_val =
-         _mongocrypt_new_string_from_bytes (key_id->data, key_id->len);
-      _mongocrypt_log (&ctx->crypt->log,
-                       MONGOCRYPT_LOG_LEVEL_INFO,
-                       "%s (%s=\"%s\")",
-                       BSON_FUNC,
-                       "key_id",
-                       key_id_val);
-      bson_free (key_id_val);
-   }
-
    return _set_binary_opt (ctx, key_id, &ctx->opts.key_id, BSON_SUBTYPE_UUID);
 }
 
@@ -136,7 +123,7 @@ mongocrypt_ctx_setopt_key_alt_name (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid bson");
    }
 
-   if (0 != strcmp (bson_iter_key (&iter), "keyAltName")) {
+   if (0 != strcmp(bson_iter_key (&iter), "keyAltName")) {
       return _mongocrypt_ctx_fail_w_msg (
          ctx, "keyAltName must have field 'keyAltName'");
    }
@@ -149,8 +136,7 @@ mongocrypt_ctx_setopt_key_alt_name (mongocrypt_ctx_t *ctx,
    bson_value_copy (bson_iter_value (&iter), ctx->opts.key_alt_name);
 
    if (bson_iter_next (&iter)) {
-      return _mongocrypt_ctx_fail_w_msg (
-         ctx, "unrecognized field, only keyAltName expected");
+      return _mongocrypt_ctx_fail_w_msg (ctx, "unrecognized field, only keyAltName expected");
    }
 
    return true;
@@ -164,9 +150,7 @@ mongocrypt_ctx_setopt_algorithm (mongocrypt_ctx_t *ctx,
 {
    size_t calculated_len;
 
-   if (!ctx) {
-      return false;
-   }
+   BSON_ASSERT (ctx);
 
    if (ctx->initialized) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "cannot set options after init");
@@ -189,13 +173,6 @@ mongocrypt_ctx_setopt_algorithm (mongocrypt_ctx_t *ctx,
    }
 
    calculated_len = len == -1 ? strlen (algorithm) : (size_t) len;
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%.*s\")",
-                    BSON_FUNC,
-                    "algorithm",
-                    (int) calculated_len,
-                    algorithm);
 
    if (calculated_len == ALGORITHM_DETERMINISTIC_LEN &&
        strncmp (algorithm,
@@ -206,7 +183,9 @@ mongocrypt_ctx_setopt_algorithm (mongocrypt_ctx_t *ctx,
    }
 
    if (calculated_len == ALGORITHM_RANDOM_LEN &&
-       strncmp (algorithm, ALGORITHM_RANDOM, ALGORITHM_RANDOM_LEN) == 0) {
+       strncmp (algorithm,
+                ALGORITHM_RANDOM,
+                ALGORITHM_RANDOM_LEN) == 0) {
       ctx->opts.algorithm = MONGOCRYPT_ENCRYPTION_ALGORITHM_RANDOM;
       return true;
    }
@@ -221,13 +200,6 @@ mongocrypt_ctx_new (mongocrypt_t *crypt)
    mongocrypt_ctx_t *ctx;
    int ctx_size;
 
-   if (!crypt->initialized) {
-      mongocrypt_status_t *status;
-
-      status = crypt->status;
-      CLIENT_ERR ("cannot create context from uninitialized crypt");
-      return NULL;
-   }
    ctx_size = sizeof (_mongocrypt_ctx_encrypt_t);
    if (sizeof (_mongocrypt_ctx_decrypt_t) > ctx_size) {
       ctx_size = sizeof (_mongocrypt_ctx_decrypt_t);
@@ -239,7 +211,7 @@ mongocrypt_ctx_new (mongocrypt_t *crypt)
    ctx->crypt = crypt;
    ctx->status = mongocrypt_status_new ();
    ctx->opts.algorithm = MONGOCRYPT_ENCRYPTION_ALGORITHM_NONE;
-   ctx->state = MONGOCRYPT_CTX_DONE;
+   ctx->state = MONGOCRYPT_CTX_NOTHING_TO_DO;
    return ctx;
 }
 
@@ -309,10 +281,6 @@ _kms_done (mongocrypt_ctx_t *ctx)
 bool
 mongocrypt_ctx_mongo_op (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    if (!out) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid NULL input");
    }
@@ -335,23 +303,9 @@ mongocrypt_ctx_mongo_op (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 bool
 mongocrypt_ctx_mongo_feed (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *in)
 {
-   char *in_val;
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    if (!in) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid NULL input");
    }
-
-   in_val = _mongocrypt_new_string_from_bytes (in->data, in->len);
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\")",
-                    BSON_FUNC,
-                    "in",
-                    in_val);
-   bson_free (in_val);
 
    switch (ctx->state) {
    case MONGOCRYPT_CTX_NEED_MONGO_COLLINFO:
@@ -371,10 +325,6 @@ mongocrypt_ctx_mongo_feed (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *in)
 bool
 mongocrypt_ctx_mongo_done (mongocrypt_ctx_t *ctx)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    switch (ctx->state) {
    case MONGOCRYPT_CTX_NEED_MONGO_COLLINFO:
       CHECK_AND_CALL (mongo_done_collinfo, ctx);
@@ -393,10 +343,6 @@ mongocrypt_ctx_mongo_done (mongocrypt_ctx_t *ctx)
 mongocrypt_ctx_state_t
 mongocrypt_ctx_state (mongocrypt_ctx_t *ctx)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    return ctx->state;
 }
 
@@ -404,11 +350,6 @@ mongocrypt_ctx_state (mongocrypt_ctx_t *ctx)
 mongocrypt_kms_ctx_t *
 mongocrypt_ctx_next_kms_ctx (mongocrypt_ctx_t *ctx)
 {
-   if (!ctx || !ctx->initialized) {
-      _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-      return NULL;
-   }
-
    if (!ctx->vtable.next_kms_ctx) {
       _mongocrypt_ctx_fail_w_msg (ctx, "not applicable to context");
       return NULL;
@@ -429,10 +370,6 @@ mongocrypt_ctx_next_kms_ctx (mongocrypt_ctx_t *ctx)
 bool
 mongocrypt_ctx_kms_done (mongocrypt_ctx_t *ctx)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    if (!ctx->vtable.kms_done) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "not applicable to context");
    }
@@ -451,10 +388,6 @@ mongocrypt_ctx_kms_done (mongocrypt_ctx_t *ctx)
 bool
 mongocrypt_ctx_finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    if (!out) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid NULL input");
    }
@@ -476,10 +409,6 @@ mongocrypt_ctx_finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 bool
 mongocrypt_ctx_status (mongocrypt_ctx_t *ctx, mongocrypt_status_t *out)
 {
-   if (!ctx || !ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "ctx NULL or uninitialized");
-   }
-
    if (!mongocrypt_status_ok (ctx->status)) {
       _mongocrypt_status_copy_to (ctx->status, out);
       return false;
@@ -496,6 +425,9 @@ mongocrypt_ctx_destroy (mongocrypt_ctx_t *ctx)
       return;
    }
 
+   /* remove any pending items from cache. */
+   _mongocrypt_cache_remove_by_owner (&ctx->crypt->cache_key, ctx->id);
+
    if (ctx->vtable.cleanup) {
       ctx->vtable.cleanup (ctx);
    }
@@ -509,6 +441,7 @@ mongocrypt_ctx_destroy (mongocrypt_ctx_t *ctx)
       bson_free (ctx->opts.key_alt_name);
    }
    _mongocrypt_buffer_cleanup (&ctx->opts.key_id);
+   _mongocrypt_buffer_cleanup (&ctx->opts.local_schema);
    bson_free (ctx);
    return;
 }
@@ -545,19 +478,6 @@ mongocrypt_ctx_setopt_masterkey_aws (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "invalid cmk passed");
    }
 
-   _mongocrypt_log (&ctx->crypt->log,
-                    MONGOCRYPT_LOG_LEVEL_INFO,
-                    "%s (%s=\"%s\", %s=%d, %s=\"%s\", %s=%d)",
-                    BSON_FUNC,
-                    "region",
-                    ctx->opts.masterkey_aws_region,
-                    "region_len",
-                    region_len,
-                    "cmk",
-                    ctx->opts.masterkey_aws_cmk,
-                    "cmk_len",
-                    cmk_len);
-
    ctx->opts.masterkey_kms_provider = MONGOCRYPT_KMS_PROVIDER_AWS;
    ctx->opts.masterkey_aws_region_len = region_len;
    ctx->opts.masterkey_aws_cmk_len = cmk_len;
@@ -586,13 +506,58 @@ mongocrypt_ctx_setopt_masterkey_local (mongocrypt_ctx_t *ctx)
 
 
 bool
+mongocrypt_ctx_setopt_schema (mongocrypt_ctx_t *ctx,
+                              mongocrypt_binary_t *schema)
+{
+   bson_t tmp;
+   bson_error_t bson_err;
+
+   if (ctx->initialized) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "cannot set options after init");
+   }
+
+   if (ctx->state == MONGOCRYPT_CTX_ERROR) {
+      return false;
+   }
+
+   if (!schema || !mongocrypt_binary_data (schema)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "passed null schema");
+   }
+
+   if (!_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "already set schema");
+   }
+
+   _mongocrypt_buffer_copy_from_binary (&ctx->opts.local_schema, schema);
+
+   /* validate bson */
+   if (!_mongocrypt_buffer_to_bson (&ctx->opts.local_schema, &tmp)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "invalid bson");
+   }
+
+   if (!bson_validate_with_error (&tmp, BSON_VALIDATE_NONE, &bson_err)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, bson_err.message);
+   }
+
+   return true;
+}
+
+
+uint32_t
+mongocrypt_ctx_id (mongocrypt_ctx_t *ctx)
+{
+   return ctx->id;
+}
+
+
+bool
 _mongocrypt_ctx_init (mongocrypt_ctx_t *ctx,
                       _mongocrypt_ctx_opts_spec_t *opts_spec)
 {
    bool has_id = false, has_alt_name = false;
 
    if (ctx->initialized) {
-      return _mongocrypt_ctx_fail_w_msg (ctx, "cannot double initialize");
+      return _mongocrypt_ctx_fail_w_msg (ctx, "cannot double initialized");
    }
    ctx->initialized = true;
 
@@ -606,8 +571,7 @@ _mongocrypt_ctx_init (mongocrypt_ctx_t *ctx,
    ctx->vtable.next_kms_ctx = _next_kms_ctx;
    ctx->vtable.kms_done = _kms_done;
 
-   /* Check that required options are included and prohibited options are
-    * not.
+   /* Check that required options are included and prohibited options are not.
     */
 
    if (opts_spec->masterkey == OPT_REQUIRED) {
@@ -626,28 +590,39 @@ _mongocrypt_ctx_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "master key prohibited");
    }
 
+   if (opts_spec->schema == OPT_REQUIRED &&
+       _mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "schema required");
+   }
+
+   if (opts_spec->schema == OPT_PROHIBITED &&
+       !_mongocrypt_buffer_empty (&ctx->opts.local_schema)) {
+      return _mongocrypt_ctx_fail_w_msg (ctx, "schema prohibited");
+   }
+
    has_id = !_mongocrypt_buffer_empty (&ctx->opts.key_id);
    has_alt_name = !!(ctx->opts.key_alt_name);
 
    if (opts_spec->key_descriptor == OPT_REQUIRED) {
+
       if (!has_id && !has_alt_name) {
          return _mongocrypt_ctx_fail_w_msg (
-            ctx, "either key id or key alt name required");
+            ctx,
+            "either key id or key alt name required");
       }
 
       if (has_id && has_alt_name) {
          return _mongocrypt_ctx_fail_w_msg (
-            ctx, "cannot have both key id and key alt name");
+            ctx,
+            "cannot have both key id and key alt name");
       }
    }
 
-   if (opts_spec->key_descriptor == OPT_PROHIBITED &&
-       (has_id || has_alt_name)) {
+   if (opts_spec->key_descriptor == OPT_PROHIBITED && (has_id || has_alt_name)) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "key id and alt name prohibited");
    }
 
-   if (opts_spec->algorithm == OPT_REQUIRED &&
-       ctx->opts.algorithm == MONGOCRYPT_ENCRYPTION_ALGORITHM_NONE) {
+   if (opts_spec->algorithm == OPT_REQUIRED && ctx->opts.algorithm == MONGOCRYPT_ENCRYPTION_ALGORITHM_NONE) {
       return _mongocrypt_ctx_fail_w_msg (ctx, "algorithm required");
    }
 
@@ -656,8 +631,31 @@ _mongocrypt_ctx_init (mongocrypt_ctx_t *ctx,
       return _mongocrypt_ctx_fail_w_msg (ctx, "algorithm prohibited");
    }
 
+   _mongocrypt_mutex_lock (&ctx->crypt->mutex);
+   ctx->id = ctx->crypt->ctx_counter++;
+   _mongocrypt_mutex_unlock (&ctx->crypt->mutex);
    _mongocrypt_key_broker_init (
-      &ctx->kb, &ctx->crypt->opts, &ctx->crypt->cache_key, &ctx->crypt->log);
+      &ctx->kb, ctx->id, &ctx->crypt->opts, &ctx->crypt->cache_key);
+   return true;
+}
+
+uint32_t
+mongocrypt_ctx_next_dependent_ctx_id (mongocrypt_ctx_t *ctx)
+{
+   return ctx->vtable.next_dependent_ctx_id (ctx);
+}
+
+bool
+mongocrypt_ctx_wait_done (mongocrypt_ctx_t *ctx)
+{
+   return ctx->vtable.wait_done (ctx);
+}
+
+
+bool
+mongocrypt_ctx_setopt_cache_noblock (mongocrypt_ctx_t *ctx)
+{
+   ctx->cache_noblock = true;
    return true;
 }
 
@@ -682,8 +680,7 @@ _mongocrypt_ctx_state_from_key_broker (mongocrypt_ctx_t *ctx)
       ret = false;
    } else if (kb->kb_entry == NULL) {
       /* No key entries were ever added. */
-      new_state = MONGOCRYPT_CTX_READY;
-      ctx->nothing_to_do = true; /* nothing to encrypt/decrypt */
+      new_state = MONGOCRYPT_CTX_NOTHING_TO_DO;
       ret = true;
    } else if (_mongocrypt_key_broker_any_state (kb, KEY_EMPTY)) {
       /* Empty keys require documents. */
@@ -693,6 +690,11 @@ _mongocrypt_ctx_state_from_key_broker (mongocrypt_ctx_t *ctx)
               _mongocrypt_key_broker_any_state (kb, KEY_DECRYPTING)) {
       /* Encrypted keys need KMS. */
       new_state = MONGOCRYPT_CTX_NEED_KMS;
+      ret = true;
+   } else if (_mongocrypt_key_broker_any_state (kb,
+                                                KEY_WAITING_FOR_OTHER_CTX)) {
+      /* Keys in cache need waiting. */
+      new_state = MONGOCRYPT_CTX_WAITING;
       ret = true;
    } else if (!_mongocrypt_key_broker_all_state (kb, KEY_DECRYPTED)) {
       /* All keys must be decrypted. */
