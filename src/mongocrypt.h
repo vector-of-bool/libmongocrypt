@@ -102,7 +102,7 @@ mongocrypt_binary_new_from_data (uint8_t *data, uint32_t len);
  * @returns A pointer to the viewed data.
  */
 MONGOCRYPT_EXPORT
-const uint8_t *
+uint8_t *
 mongocrypt_binary_data (const mongocrypt_binary_t *binary);
 
 
@@ -162,6 +162,29 @@ typedef enum {
 MONGOCRYPT_EXPORT
 mongocrypt_status_t *
 mongocrypt_status_new (void);
+
+
+/**
+ * Set a status object with message, type, and code.
+ *
+ * Use this to set the @ref mongocrypt_status_t given in the crypto hooks.
+ *
+ * @param[in] type The status type.
+ * @param[in] code The status code.
+ * @param[in] message The message.
+ * @param[in] message_len The length of @p message. Pass -1 to determine the
+ * string length with strlen (must
+ * be NULL terminated).
+ *
+ * @returns A new status object.
+ */
+MONGOCRYPT_EXPORT
+void
+mongocrypt_status_set (mongocrypt_status_t *status,
+                       mongocrypt_status_type_t type,
+                       uint32_t code,
+                       const char *message,
+                       int32_t message_len);
 
 
 /**
@@ -329,7 +352,7 @@ mongocrypt_setopt_kms_provider_aws (mongocrypt_t *crypt,
  * Configure a local KMS provider on the @ref mongocrypt_t object.
  *
  * @param[in] crypt The @ref mongocrypt_t object.
- * @param[in] key A 64 byte master key used to encrypt and decrypt key vault
+ * @param[in] key A 96 byte master key used to encrypt and decrypt key vault
  * keys. The viewed data is copied. It is valid to destroy @p key with @ref
  * mongocrypt_binary_destroy immediately after.
  * @pre @ref mongocrypt_init has not been called on @p crypt.
@@ -862,6 +885,53 @@ mongocrypt_ctx_finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out);
 MONGOCRYPT_EXPORT
 void
 mongocrypt_ctx_destroy (mongocrypt_ctx_t *ctx);
+
+/**
+ * Set optional crypto primitive callbacks.
+ *
+ * This MUST be called if libmongocrypt was configured with
+ * DISABLE_NATIVE_CRYPTO.
+ *
+ * TODO: finish documenting.
+ *
+ */
+
+/* An array of mongocrypt_binary_t types */
+
+typedef bool (*mongocrypt_crypto_fn) (void *ctx,
+                                      mongocrypt_binary_t *key,
+                                      mongocrypt_binary_t *iv,
+                                      mongocrypt_binary_t *in,
+                                      mongocrypt_binary_t *out,
+                                      uint32_t *bytes_written,
+                                      mongocrypt_status_t *status);
+
+typedef bool (*mongocrypt_hmac_fn) (void *ctx,
+                                    mongocrypt_binary_t *key,
+                                    mongocrypt_binary_t *in,
+                                    mongocrypt_binary_t *out,
+                                    mongocrypt_status_t *status);
+
+
+typedef bool (*mongocrypt_hash_fn) (void *ctx,
+                                    mongocrypt_binary_t *in,
+                                    mongocrypt_binary_t *out,
+                                    mongocrypt_status_t *status);
+
+typedef bool (*mongocrypt_random_fn) (void *ctx,
+                                      mongocrypt_binary_t *out,
+                                      uint32_t count,
+                                      mongocrypt_status_t *status);
+
+bool
+mongocrypt_setopt_crypto_hooks (mongocrypt_t *crypt,
+                                mongocrypt_crypto_fn aes_256_cbc_encrypt,
+                                mongocrypt_crypto_fn aes_256_cbc_decrypt,
+                                mongocrypt_random_fn random,
+                                mongocrypt_hmac_fn hmac_sha_512,
+                                mongocrypt_hmac_fn hmac_sha_256,
+                                mongocrypt_hash_fn sha_256,
+                                void *ctx);
 
 
 #endif /* MONGOCRYPT_H */

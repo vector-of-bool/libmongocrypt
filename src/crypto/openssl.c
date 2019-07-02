@@ -298,8 +298,7 @@ _crypto_hmac_finalize (void *ctx,
 {
    bool ret = false;
 
-   BSON_ASSERT (out->len >= 64);
-   if (!HMAC_Final (ctx, out->data, bytes_written)) {
+   if (!HMAC_Final (ctx, out->data, NULL)) {
       CLIENT_ERR ("error finalizing: %s",
                   ERR_error_string (ERR_get_error (), NULL));
       goto done;

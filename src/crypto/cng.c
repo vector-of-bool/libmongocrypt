@@ -349,15 +349,12 @@ _crypto_hmac_finalize (void *ctx,
 
    hHash = (BCRYPT_HASH_HANDLE) ctx;
 
-   BSON_ASSERT (out->len >= 64);
-
    nt_status = BCryptFinishHash (hHash, out->data, out->len, 0);
    if (nt_status != STATUS_SUCCESS) {
       CLIENT_ERR ("error finishing hmac: 0x%x", (int) nt_status);
       return false;
    }
 
-   *bytes_written = 64; /* have faith! */
    return true;
 }
 

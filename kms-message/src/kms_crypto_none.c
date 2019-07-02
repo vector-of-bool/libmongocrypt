@@ -36,11 +36,8 @@ kms_sha256 (void *unused_ctx,
             size_t len,
             unsigned char *hash_out)
 {
-   CC_SHA256_CTX ctx;
-   CC_SHA256_Init (&ctx);
-   CC_SHA256_Update (&ctx, input, len);
-   CC_SHA256_Final (hash_out, &ctx);
-   return true;
+   /* only gets called if hooks were mistakenly not set */
+   return false;
 }
 
 bool
@@ -51,6 +48,6 @@ kms_sha256_hmac (void *unused_ctx,
                  size_t len,
                  unsigned char *hash_out)
 {
-   CCHmac (kCCHmacAlgSHA256, key_input, key_len, input, len, hash_out);
-   return true;
+   /* only gets called if hooks were mistakenly not set */
+   return false;
 }
