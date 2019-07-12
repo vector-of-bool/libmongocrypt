@@ -81,10 +81,7 @@ _native_crypto_aes_256_cbc_encrypt (const _mongocrypt_buffer_t *key,
    ret = true;
 done:
    CCCryptorRelease (ctx);
-   if (!ret) {
-      return false;
-   }
-   return true;
+   return ret;
 }
 
 
@@ -139,10 +136,7 @@ _native_crypto_aes_256_cbc_decrypt (const _mongocrypt_buffer_t *key,
    ret = true;
 done:
    CCCryptorRelease (ctx);
-   if (!ret) {
-      return false;
-   }
-   return true;
+   return ret;
 }
 
 

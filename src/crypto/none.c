@@ -38,18 +38,13 @@
 #include <CommonCrypto/CommonHMAC.h>
 #include <CommonCrypto/CommonRandom.h>
 
-bool _crypto_initialized = false;
+bool _native_crypto_initialized = false;
 
 void
-_crypto_init ()
+_native_crypto_init ()
 {
-   _crypto_initialized = true;
+   _native_crypto_initialized = true;
 }
 
 
-void
-_crypto_set_default_hooks (_mongocrypt_crypto_t *crypto)
-{
-   /* nothing to do */
-   return;
-}
+/* TODO */
