@@ -71,18 +71,20 @@ add_library (
    ${KMS_MESSAGE_SOURCES}
 )
 
-if (WIN32)
-   target_link_libraries(kms_message "bcrypt")
-   target_link_libraries(kms_message_static "bcrypt")
-elseif (APPLE)
-   # Nothing
-else()
-   include (FindOpenSSL)
-   target_link_libraries(kms_message "${OPENSSL_LIBRARIES}")
-   target_include_directories(kms_message PRIVATE "${OPENSSL_INCLUDE_DIR}")
-   target_link_libraries(kms_message_static "${OPENSSL_LIBRARIES}")
-   target_include_directories(kms_message_static PRIVATE "${OPENSSL_INCLUDE_DIR}")
-endif()
+if (NOT DISABLE_NATIVE_CRYPTO)
+   if (WIN32)
+      target_link_libraries(kms_message "bcrypt")
+      target_link_libraries(kms_message_static "bcrypt")
+   elseif (APPLE)
+      # Nothing
+   else()
+      include (FindOpenSSL)
+      target_link_libraries(kms_message "${OPENSSL_LIBRARIES}")
+      target_include_directories(kms_message PRIVATE "${OPENSSL_INCLUDE_DIR}")
+      target_link_libraries(kms_message_static "${OPENSSL_LIBRARIES}")
+      target_include_directories(kms_message_static PRIVATE "${OPENSSL_INCLUDE_DIR}")
+   endif()
+endif ()
 
 if ( CMAKE_COMPILER_IS_GNUCC )
     set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wall -Wno-unused-function -Wsign-compare -Werror")
@@ -187,19 +189,22 @@ install (
    DESTINATION lib/pkgconfig
 )
 
-add_executable (
-   test_kms_request
-   ${KMS_MESSAGE_SOURCES}
-   test/test_kms_request.c
-)
-target_include_directories(test_kms_request PRIVATE  ${PROJECT_SOURCE_DIR})
+# cannot run tests without crypto
+if (NOT DISABLE_NATIVE_CRYPTO)
+   add_executable (
+      test_kms_request
+      ${KMS_MESSAGE_SOURCES}
+      test/test_kms_request.c
+   )
+   target_include_directories(test_kms_request PRIVATE  ${PROJECT_SOURCE_DIR})
 
-if (WIN32)
-   target_link_libraries(test_kms_request "bcrypt")
-elseif (APPLE)
-   # Nothing
-else()
-   include (FindOpenSSL)
-   target_link_libraries(test_kms_request "${OPENSSL_LIBRARIES}")
-   target_include_directories(test_kms_request PRIVATE "${OPENSSL_INCLUDE_DIR}")
-endif()
+   if (WIN32)
+      target_link_libraries(test_kms_request "bcrypt")
+   elseif (APPLE)
+      # Nothing
+   else()
+      include (FindOpenSSL)
+      target_link_libraries(test_kms_request "${OPENSSL_LIBRARIES}")
+      target_include_directories(test_kms_request PRIVATE "${OPENSSL_INCLUDE_DIR}")
+   endif()
+endif ()

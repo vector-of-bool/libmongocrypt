@@ -49,13 +49,21 @@ cd $evergreen_root
 cd libmongocrypt
 mkdir cmake-build
 cd cmake-build
-# TODO: also compile and upload after configuring with -DDISABLE_NATIVE_CRYPTO=ON.
 $CMAKE -DCMAKE_BUILD_TYPE=Debug "${LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS}" -DCMAKE_C_FLAGS="-fPIC ${LIBMONGOCRYPT_EXTRA_CFLAGS}" -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}/mongo-c-driver" "-DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}/libmongocrypt" ../
 echo "Installing libmongocrypt"
 $CMAKE --build . --target install
+
 # CDRIVER-3187, ensure the final distributed tarball contains the libbson static
 # library to support consumers that static link to libmongocrypt
 find ${INSTALL_PREFIX}/mongo-c-driver \( -name libbson-static-1.0.a -o -name bson-1.0.lib \) -execdir cp {} $(dirname $(find ${INSTALL_PREFIX}/libmongocrypt -name libmongocrypt-static.a -o -name mongocrypt-static.lib)) \;
 $CMAKE --build . --target test-mongocrypt
 $CMAKE --build ./kms-message --target test_kms_request
 cd $evergreen_root
+
+# Build and install libmongocrypt with no native crypto.
+cd libmongocrypt
+mkdir cmake-build-nocrypto
+cd cmake-build-nocrypto
+$CMAKE -DDISABLE_NATIVE_CRYPTO=ON -DCMAKE_BUILD_TYPE=Debug "${LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS}" -DCMAKE_C_FLAGS="-fPIC ${LIBMONGOCRYPT_EXTRA_CFLAGS}" -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}/mongo-c-driver" "-DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX}/libmongocrypt/nocrypto" ../
+echo "Installing libmongocrypt with no crypto"
+$CMAKE --build . --target install
