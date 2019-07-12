@@ -194,36 +194,39 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mongocrypt-traverse-util.c
    test/test-mongocrypt.c
 )
-# Define test-mongocrypt
-# TODO: test-mongocrypt should only need to link against mongocrypt_static,
-# which statically links kms_message. To work around linker errors in Windows,
-# test-mongocrypt is compiled with TARGET_OBJECTS of kms_message
-add_executable (test-mongocrypt ${TEST_MONGOCRYPT_SOURCES} $<TARGET_OBJECTS:kms_message_obj>)
-# Use the static version since it allows the test binary to use private symbols
-target_link_libraries (test-mongocrypt PRIVATE mongocrypt_static)
-target_include_directories (test-mongocrypt PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
-target_include_directories (test-mongocrypt PRIVATE ${BSON_INCLUDE_DIRS})
-target_link_libraries (test-mongocrypt PRIVATE ${BSON_LIBRARIES})
-target_compile_definitions (test-mongocrypt PRIVATE "${BSON_DEFINITIONS}")
 
-add_test(mongocrypt test-mongocrypt WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+# Exclude test-mongocrypt and example-state-machine as they require crypto.
+if (NOT MONGOCRYPT_CRYPTO STREQUAL none)
+   # Define test-mongocrypt
+   # TODO: test-mongocrypt should only need to link against mongocrypt_static,
+   # which statically links kms_message. To work around linker errors in Windows,
+   # test-mongocrypt is compiled with TARGET_OBJECTS of kms_message
+   add_executable (test-mongocrypt ${TEST_MONGOCRYPT_SOURCES} $<TARGET_OBJECTS:kms_message_obj>)
+   # Use the static version since it allows the test binary to use private symbols
+   target_link_libraries (test-mongocrypt PRIVATE mongocrypt_static)
+   target_include_directories (test-mongocrypt PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
+   target_include_directories (test-mongocrypt PRIVATE ${BSON_INCLUDE_DIRS})
+   target_link_libraries (test-mongocrypt PRIVATE ${BSON_LIBRARIES})
+   target_compile_definitions (test-mongocrypt PRIVATE "${BSON_DEFINITIONS}")
 
-# Define example-state-machine
-add_executable (example-state-machine test/example-state-machine.c)
-target_link_libraries (example-state-machine PRIVATE mongocrypt)
-target_include_directories (example-state-machine PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
-target_include_directories (example-state-machine PRIVATE ${BSON_INCLUDE_DIRS})
-target_link_libraries (example-state-machine PRIVATE ${BSON_LIBRARIES})
-target_compile_definitions (example-state-machine PRIVATE "${BSON_DEFINITIONS}")
+   add_test(mongocrypt test-mongocrypt WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Define example-state-machine-static
-add_executable (example-state-machine-static test/example-state-machine.c $<TARGET_OBJECTS:kms_message_obj>)
-target_link_libraries (example-state-machine-static PRIVATE mongocrypt_static)
-target_include_directories (example-state-machine-static PRIVATE ./src)
-target_include_directories (example-state-machine-static PRIVATE ${BSON_INCLUDE_DIRS})
-target_link_libraries (example-state-machine-static PRIVATE ${BSON_LIBRARIES})
-target_compile_definitions (example-state-machine-static PRIVATE "${BSON_DEFINITIONS}")
+   # Define example-state-machine
+   add_executable (example-state-machine test/example-state-machine.c)
+   target_link_libraries (example-state-machine PRIVATE mongocrypt)
+   target_include_directories (example-state-machine PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
+   target_include_directories (example-state-machine PRIVATE ${BSON_INCLUDE_DIRS})
+   target_link_libraries (example-state-machine PRIVATE ${BSON_LIBRARIES})
+   target_compile_definitions (example-state-machine PRIVATE "${BSON_DEFINITIONS}")
 
+   # Define example-state-machine-static
+   add_executable (example-state-machine-static test/example-state-machine.c $<TARGET_OBJECTS:kms_message_obj>)
+   target_link_libraries (example-state-machine-static PRIVATE mongocrypt_static)
+   target_include_directories (example-state-machine-static PRIVATE ./src)
+   target_include_directories (example-state-machine-static PRIVATE ${BSON_INCLUDE_DIRS})
+   target_link_libraries (example-state-machine-static PRIVATE ${BSON_LIBRARIES})
+   target_compile_definitions (example-state-machine-static PRIVATE "${BSON_DEFINITIONS}")
+endif ()
 
 install (TARGETS mongocrypt mongocrypt_static
    EXPORT mongocrypt_targets
