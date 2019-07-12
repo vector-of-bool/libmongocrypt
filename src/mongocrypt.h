@@ -662,7 +662,8 @@ mongocrypt_ctx_explicit_decrypt_init (mongocrypt_ctx_t *ctx,
 
 /**
  * Indicates the state of the @ref mongocrypt_ctx_t. Each state requires
- * different handling. See [the integration guide](https://github.com/mongodb/libmongocrypt/blob/master/integrating.md#state-machine)
+ * different handling. See [the integration
+ * guide](https://github.com/mongodb/libmongocrypt/blob/master/integrating.md#state-machine)
  * for information on what to do for each state.
  */
 typedef enum {
@@ -888,15 +889,18 @@ mongocrypt_ctx_destroy (mongocrypt_ctx_t *ctx);
 
 /**
  * A crypto encrypt or decrypt function.
- * 
+ *
  * Note, @p in is already padded. Encrypt with padding disabled.
- * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[in] ctx An optional context object that may have been set when hooks
+ * were enabled.
  * @param[in] key An encryption key (32 bytes for AES_256).
  * @param[in] iv An initialization vector (16 bytes for AES_256);
  * @param[in] in The input.
- * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ * @param[out] out A preallocated byte array for the output. See @ref
+ * mongocrypt_binary_data.
  * @param[out] bytes_written Set this to the number of bytes written to @p out.
- * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ * @param[out] status An optional status to pass error messages. See @ref
+ * mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_crypto_fn) (void *ctx,
                                       mongocrypt_binary_t *key,
@@ -909,11 +913,14 @@ typedef bool (*mongocrypt_crypto_fn) (void *ctx,
 /**
  * A crypto HMAC function.
  *
- * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[in] ctx An optional context object that may have been set when hooks
+ * were enabled.
  * @param[in] key An encryption key (32 bytes for HMAC_SHA512).
  * @param[in] in The input.
- * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
- * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ * @param[out] out A preallocated byte array for the output. See @ref
+ * mongocrypt_binary_data.
+ * @param[out] status An optional status to pass error messages. See @ref
+ * mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_hmac_fn) (void *ctx,
                                     mongocrypt_binary_t *key,
@@ -924,11 +931,14 @@ typedef bool (*mongocrypt_hmac_fn) (void *ctx,
 
 /**
  * A crypto hash function.
- * 
- * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ *
+ * @param[in] ctx An optional context object that may have been set when hooks
+ * were enabled.
  * @param[in] in The input.
- * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
- * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ * @param[out] out A preallocated byte array for the output. See @ref
+ * mongocrypt_binary_data.
+ * @param[out] status An optional status to pass error messages. See @ref
+ * mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_hash_fn) (void *ctx,
                                     mongocrypt_binary_t *in,
@@ -937,11 +947,14 @@ typedef bool (*mongocrypt_hash_fn) (void *ctx,
 
 /**
  * A crypto secure random function.
- * 
- * @param[in] ctx An optional context object that may have been set when hooks were enabled.
- * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ *
+ * @param[in] ctx An optional context object that may have been set when hooks
+ * were enabled.
+ * @param[out] out A preallocated byte array for the output. See @ref
+ * mongocrypt_binary_data.
  * @param[in] count The number of random bytes requested.
- * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ * @param[out] status An optional status to pass error messages. See @ref
+ * mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_random_fn) (void *ctx,
                                       mongocrypt_binary_t *out,

@@ -93,16 +93,28 @@ _test_roundtrip (_mongocrypt_tester_t *tester)
                                     status);
    BSON_ASSERT (!ret);
    BSON_ASSERT (0 == strcmp (status->message, "HMAC validation failure"));
-   /* undo the change (flip the bit again). Double check that decryption works again. */
+   /* undo the change (flip the bit again). Double check that decryption works
+    * again. */
    ciphertext.data[ciphertext.len - 1] ^= 1;
    _mongocrypt_status_reset (status);
-   ret = _mongocrypt_do_decryption (crypt->crypto, &associated_data, &key, &ciphertext, &decrypted, &bytes_written, status);
+   ret = _mongocrypt_do_decryption (crypt->crypto,
+                                    &associated_data,
+                                    &key,
+                                    &ciphertext,
+                                    &decrypted,
+                                    &bytes_written,
+                                    status);
    BSON_ASSERT (ret);
 
    /* Modify parts of the key. */
    key.data[0] ^= 1; /* part of the mac key */
    ret = _mongocrypt_do_decryption (crypt->crypto,
-      &associated_data, &key, &ciphertext, &decrypted, &bytes_written, status);
+                                    &associated_data,
+                                    &key,
+                                    &ciphertext,
+                                    &decrypted,
+                                    &bytes_written,
+                                    status);
    BSON_ASSERT (!ret);
    BSON_ASSERT (0 == strcmp (status->message, "HMAC validation failure"));
    /* undo */
@@ -112,9 +124,15 @@ _test_roundtrip (_mongocrypt_tester_t *tester)
    /* Modify the portion of the key responsible for encryption/decryption */
    key.data[MONGOCRYPT_MAC_KEY_LEN + 1] ^= 1; /* part of the encryption key */
    ret = _mongocrypt_do_decryption (crypt->crypto,
-      &associated_data, &key, &ciphertext, &decrypted, &bytes_written, status);
+                                    &associated_data,
+                                    &key,
+                                    &ciphertext,
+                                    &decrypted,
+                                    &bytes_written,
+                                    status);
    BSON_ASSERT (!ret);
-   BSON_ASSERT (0 == strcmp (status->message, "error, ciphertext malformed padding"));
+   BSON_ASSERT (
+      0 == strcmp (status->message, "error, ciphertext malformed padding"));
 
    mongocrypt_status_destroy (status);
    _mongocrypt_buffer_cleanup (&decrypted);
@@ -136,31 +154,35 @@ _test_mcgrew (_mongocrypt_tester_t *tester)
    uint32_t bytes_written;
    bool ret;
 
-   _mongocrypt_buffer_copy_from_hex (&key,
-                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1"
-                 "b1c1d1e1f202122232425262728292a2b2c2d2e2f30313233343536"
-                 "3738393a3b3c3d3e3f"
-                 /* includes our additional 32 byte IV key */
-                 "0000000000000000000000000000000000000000000000000000000000000000");
+   _mongocrypt_buffer_copy_from_hex (
+      &key,
+      "000102030405060708090a0b0c0d0e0f101112131415161718191a1"
+      "b1c1d1e1f202122232425262728292a2b2c2d2e2f30313233343536"
+      "3738393a3b3c3d3e3f"
+      /* includes our additional 32 byte IV key */
+      "0000000000000000000000000000000000000000000000000000000000000000");
    _mongocrypt_buffer_copy_from_hex (&iv, "1af38c2dc2b96ffdd86694092341bc04");
-   _mongocrypt_buffer_copy_from_hex (&plaintext,
-                 "41206369706865722073797374656d206d757374206e6f742"
-                 "0626520726571756972656420746f20626520736563726574"
-                 "2c20616e64206974206d7573742062652061626c6520746f2"
-                 "066616c6c20696e746f207468652068616e6473206f662074"
-                 "686520656e656d7920776974686f757420696e636f6e76656"
-                 "e69656e6365");
-   _mongocrypt_buffer_copy_from_hex (&associated_data,
-                 "546865207365636f6e64207072696e6369706c65206"
-                 "f662041756775737465204b6572636b686f666673");
-   _mongocrypt_buffer_copy_from_hex (&ciphertext_expected,
-                 "1af38c2dc2b96ffdd86694092341bc044affaaadb78c31c5da4b1b590d10f"
-                 "fbd3dd8d5d302423526912da037ecbcc7bd822c301dd67c373bccb584ad3e"
-                 "9279c2e6d12a1374b77f077553df829410446b36ebd97066296ae6427ea75"
-                 "c2e0846a11a09ccf5370dc80bfecbad28c73f09b3a3b75e662a2594410ae4"
-                 "96b2e2e6609e31e6e02cc837f053d21f37ff4f51950bbe2638d09dd7a4930"
-                 "930806d0703b1f64dd3b4c088a7f45c216839645b2012bf2e6269a8c56a81"
-                 "6dbc1b267761955bc5");
+   _mongocrypt_buffer_copy_from_hex (
+      &plaintext,
+      "41206369706865722073797374656d206d757374206e6f742"
+      "0626520726571756972656420746f20626520736563726574"
+      "2c20616e64206974206d7573742062652061626c6520746f2"
+      "066616c6c20696e746f207468652068616e6473206f662074"
+      "686520656e656d7920776974686f757420696e636f6e76656"
+      "e69656e6365");
+   _mongocrypt_buffer_copy_from_hex (
+      &associated_data,
+      "546865207365636f6e64207072696e6369706c65206"
+      "f662041756775737465204b6572636b686f666673");
+   _mongocrypt_buffer_copy_from_hex (
+      &ciphertext_expected,
+      "1af38c2dc2b96ffdd86694092341bc044affaaadb78c31c5da4b1b590d10f"
+      "fbd3dd8d5d302423526912da037ecbcc7bd822c301dd67c373bccb584ad3e"
+      "9279c2e6d12a1374b77f077553df829410446b36ebd97066296ae6427ea75"
+      "c2e0846a11a09ccf5370dc80bfecbad28c73f09b3a3b75e662a2594410ae4"
+      "96b2e2e6609e31e6e02cc837f053d21f37ff4f51950bbe2638d09dd7a4930"
+      "930806d0703b1f64dd3b4c088a7f45c216839645b2012bf2e6269a8c56a81"
+      "6dbc1b267761955bc5");
 
    ciphertext_actual.len = _mongocrypt_calculate_ciphertext_len (plaintext.len);
    ciphertext_actual.data = bson_malloc (ciphertext_actual.len);
