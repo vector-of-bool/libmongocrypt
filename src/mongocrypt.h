@@ -887,17 +887,17 @@ void
 mongocrypt_ctx_destroy (mongocrypt_ctx_t *ctx);
 
 /**
- * Set optional crypto primitive callbacks.
- *
- * This MUST be called if libmongocrypt was configured with
- * DISABLE_NATIVE_CRYPTO.
- *
- * TODO: finish documenting.
- *
+ * A crypto encrypt or decrypt function.
+ * 
+ * Note, @p in is already padded. Encrypt with padding disabled.
+ * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[in] key An encryption key (32 bytes for AES_256).
+ * @param[in] iv An initialization vector (16 bytes for AES_256);
+ * @param[in] in The input.
+ * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ * @param[out] bytes_written Set this to the number of bytes written to @p out.
+ * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
  */
-
-/* An array of mongocrypt_binary_t types */
-
 typedef bool (*mongocrypt_crypto_fn) (void *ctx,
                                       mongocrypt_binary_t *key,
                                       mongocrypt_binary_t *iv,
@@ -906,6 +906,15 @@ typedef bool (*mongocrypt_crypto_fn) (void *ctx,
                                       uint32_t *bytes_written,
                                       mongocrypt_status_t *status);
 
+/**
+ * A crypto HMAC function.
+ *
+ * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[in] key An encryption key (32 bytes for HMAC_SHA512).
+ * @param[in] in The input.
+ * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ */
 typedef bool (*mongocrypt_hmac_fn) (void *ctx,
                                     mongocrypt_binary_t *key,
                                     mongocrypt_binary_t *in,
@@ -913,11 +922,27 @@ typedef bool (*mongocrypt_hmac_fn) (void *ctx,
                                     mongocrypt_status_t *status);
 
 
+/**
+ * A crypto hash function.
+ * 
+ * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[in] in The input.
+ * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ */
 typedef bool (*mongocrypt_hash_fn) (void *ctx,
                                     mongocrypt_binary_t *in,
                                     mongocrypt_binary_t *out,
                                     mongocrypt_status_t *status);
 
+/**
+ * A crypto secure random function.
+ * 
+ * @param[in] ctx An optional context object that may have been set when hooks were enabled.
+ * @param[out] out A preallocated byte array for the output. See @ref mongocrypt_binary_data.
+ * @param[in] count The number of random bytes requested.
+ * @param[out] status An optional status to pass error messages. See @ref mongocrypt_status_set.
+ */
 typedef bool (*mongocrypt_random_fn) (void *ctx,
                                       mongocrypt_binary_t *out,
                                       uint32_t count,
