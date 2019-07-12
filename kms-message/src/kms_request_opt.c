@@ -39,7 +39,7 @@ kms_request_opt_set_connection_close (kms_request_opt_t *opt,
 }
 
 
-KMS_MSG_EXPORT (void)
+void
 kms_request_opt_set_crypto_hooks (kms_request_opt_t *opt,
                                   bool (*sha256) (void *ctx,
                                                   const char *input,

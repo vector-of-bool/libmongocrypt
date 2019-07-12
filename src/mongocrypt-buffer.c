@@ -420,7 +420,7 @@ _mongocrypt_buffer_to_hex (_mongocrypt_buffer_t *buf)
    char *hex = bson_malloc0 (buf->len * 2 + 1);
    char *out = hex;
 
-   for (int i = 0; i < buf->len; i++, out += 2) {
+   for (uint32_t i = 0; i < buf->len; i++, out += 2) {
       sprintf (out, "%02X", buf->data[i]);
    }
    return hex;

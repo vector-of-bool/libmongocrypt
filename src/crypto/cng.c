@@ -98,6 +98,8 @@ typedef struct {
    uint32_t iv_len;
 } cng_encrypt_state;
 
+static void
+_crypto_state_destroy (cng_encrypt_state *state);
 
 static cng_encrypt_state *
 _crypto_state_init (const _mongocrypt_buffer_t *key,
@@ -153,7 +155,7 @@ _crypto_state_init (const _mongocrypt_buffer_t *key,
 
    return state;
 fail:
-   _crypto_encrypt_destroy (state);
+   _crypto_state_destroy (state);
    bson_free (keyBlob);
 
    return NULL;
@@ -189,7 +191,6 @@ _native_crypto_aes_256_cbc_encrypt (const _mongocrypt_buffer_t *key,
 
    NTSTATUS nt_status;
 
-   state = (cng_encrypt_state *) ctx;
    nt_status = BCryptEncrypt (state->key_handle,
                               (PUCHAR) (in->data),
                               in->len,
@@ -208,7 +209,7 @@ _native_crypto_aes_256_cbc_encrypt (const _mongocrypt_buffer_t *key,
 
    ret = true;
 done:
-   _crypto_state_destroy ((cng_encrypt_state *) ctx);
+   _crypto_state_destroy (state);
    return ret;
 }
 
@@ -226,7 +227,6 @@ _native_crypto_aes_256_cbc_decrypt (const _mongocrypt_buffer_t *key,
 
    NTSTATUS nt_status;
 
-   state = (cng_encrypt_state *) ctx;
    nt_status = BCryptDecrypt (state->key_handle,
                               (PUCHAR) (in->data),
                               in->len,
@@ -246,7 +246,7 @@ _native_crypto_aes_256_cbc_decrypt (const _mongocrypt_buffer_t *key,
 
    ret = true;
 done:
-   _crypto_state_destroy ((cng_encrypt_state *) ctx);
+   _crypto_state_destroy (state);
    return ret;
 }
 
@@ -257,7 +257,7 @@ _native_crypto_hmac_sha_512 (const _mongocrypt_buffer_t *key,
                              _mongocrypt_buffer_t *out,
                              mongocrypt_status_t *status)
 {
-   bool ret;
+   bool ret = false;
    BCRYPT_HASH_HANDLE hHash;
    NTSTATUS nt_status;
 
@@ -285,6 +285,7 @@ _native_crypto_hmac_sha_512 (const _mongocrypt_buffer_t *key,
       goto done;
    }
 
+   ret = true;
 done:
    (void) BCryptDestroyHash (hHash);
    return ret;
