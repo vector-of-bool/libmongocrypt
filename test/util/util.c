@@ -581,58 +581,6 @@ done:
    return stream;
 }
 
-/* Copied from mongoc-stream.c */
-bool
-_mongoc_stream_writev_full (mongoc_stream_t *stream,
-                            mongoc_iovec_t *iov,
-                            size_t iovcnt,
-                            int32_t timeout_msec,
-                            bson_error_t *error)
-{
-   size_t total_bytes = 0;
-   size_t i;
-   ssize_t r;
-
-   for (i = 0; i < iovcnt; i++) {
-      total_bytes += iov[i].iov_len;
-   }
-
-   r = mongoc_stream_writev (stream, iov, iovcnt, timeout_msec);
-
-   if (r < 0) {
-      if (error) {
-         char buf[128];
-         char *errstr;
-
-         errstr = bson_strerror_r (errno, buf, sizeof (buf));
-
-         bson_set_error (error,
-                         MONGOC_ERROR_STREAM,
-                         MONGOC_ERROR_STREAM_SOCKET,
-                         "Failure during socket delivery: %s (%d)",
-                         errstr,
-                         errno);
-      }
-
-      return false;
-   }
-
-   if (r != (ssize_t) total_bytes) {
-      bson_set_error (error,
-                      MONGOC_ERROR_STREAM,
-                      MONGOC_ERROR_STREAM_SOCKET,
-                      "Failure to send all requested bytes (only sent: %" PRIu64
-                      "/%" PRId64 " in %dms) during socket delivery",
-                      (uint64_t) r,
-                      (int64_t) total_bytes,
-                      timeout_msec);
-
-      return false;
-   }
-
-   return true;
-}
-
 static bool
 _state_need_kms (_state_machine_t *state_machine, bson_error_t *error)
 {
