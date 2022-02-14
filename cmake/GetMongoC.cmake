@@ -45,9 +45,9 @@ else ()
 endif ()
 
 # And an alias to the mongoc target for use in some test cases
-add_library (_mongocrypt::mongoc ALIAS mongoc_static)
+add_library (_mongocrypt::mongoc ALIAS mongoc_shared)
 # Workaround: Embedded mongoc_shared does not set its INCLUDE_DIRECTORIES for user targets
-target_include_directories (mongoc_static
+target_include_directories (mongoc_shared
    PUBLIC
       "$<BUILD_INTERFACE:${MONGOCRYPT_MONGOC_DIR}/src/libmongoc/src>"
       "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/_ext_mongoc/src/libmongoc/src/mongoc>"
