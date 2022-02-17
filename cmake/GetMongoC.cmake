@@ -36,6 +36,12 @@ endif ()
 set (ENABLE_MONGODB_AWS_AUTH OFF)
 # Disable install() for the libbson static library. We'll do it ourselves
 set (ENABLE_STATIC BUILD_ONLY)
+# External mongo-c-driver does not build warning-free
+if (MSVC)
+   add_compile_options (/w)
+else ()
+   add_compile_options (-w)
+endif ()
 # Add the subdirectory as a project. EXCLUDE_FROM_ALL to inhibit building and installing of components unless requested
 add_subdirectory ("${MONGOCRYPT_MONGOC_DIR}" _ext_mongoc EXCLUDE_FROM_ALL)
 
