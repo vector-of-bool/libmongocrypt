@@ -33,7 +33,7 @@ add_subdirectory (bindings/cs)
 include (GenerateExportHeader)
 include (GNUInstallDirs)
 
-enable_testing ()
+include (CTest)
 
 set (MONGOCRYPT_PUBLIC_HEADERS
    src/mongocrypt-compat.h
@@ -70,6 +70,8 @@ set (MONGOCRYPT_SOURCES
    src/mongocrypt.c
    src/os_win/os_mutex.c
    src/os_posix/os_mutex.c
+   src/os_win/os_dll.c
+   src/os_posix/os_dll.c
    )
 
 if ( MSVC )
@@ -163,6 +165,7 @@ target_link_libraries (
       ${CMAKE_THREAD_LIBS_INIT}
       kms_message_static
       $<BUILD_INTERFACE:mongo::mlib>
+      ${CMAKE_DL_LIBS}
    )
 
 if (NOT ENABLE_SHARED_BSON)
@@ -208,6 +211,7 @@ target_link_libraries (
       kms_message_static
       $<BUILD_INTERFACE:mongo::mlib>
       ${CMAKE_THREAD_LIBS_INIT}
+      ${CMAKE_DL_LIBS}
    )
 set (PKG_CONFIG_STATIC_LIBS "\${prefix}/${CMAKE_INSTALL_LIBDIR}/libmongocrypt-static.a")
 set (PKG_CONFIG_STATIC_LIBS "${PKG_CONFIG_STATIC_LIBS} ${CMAKE_THREAD_LIBS_INIT}")
@@ -254,6 +258,16 @@ set_target_properties (mongocrypt_static PROPERTIES
    OUTPUT_NAME "mongocrypt-static"
 )
 
+if (BUILD_TESTING)
+   # Use C++ in the testing DLL to ensure we can load a library with the C++ runtime
+   enable_language (CXX)
+   add_library (test-dll MODULE test/test-dll.cpp)
+   set_target_properties (test-dll PROPERTIES
+      SUFFIX ".dll"
+      PREFIX ""
+      )
+endif ()
+
 set (TEST_MONGOCRYPT_SOURCES
    test/test-mongocrypt-assert-match-bson.c
    test/test-mongocrypt-buffer.c
@@ -266,6 +280,7 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mongocrypt-ctx-encrypt.c
    test/test-mongocrypt-ctx-setopt.c
    test/test-mongocrypt-datakey.c
+   test/test-mongocrypt-dll.c
    test/test-mongocrypt-endpoint.c
    test/test-mongocrypt-kek.c
    test/test-mongocrypt-key.c
@@ -287,10 +302,17 @@ add_executable (test-mongocrypt ${TEST_MONGOCRYPT_SOURCES})
 # Use the static version since it allows the test binary to use private symbols
 target_link_libraries (test-mongocrypt PRIVATE mongocrypt_static)
 target_include_directories (test-mongocrypt PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
-target_link_libraries (test-mongocrypt PRIVATE _mongocrypt::libbson)
+target_link_libraries (test-mongocrypt PRIVATE _mongocrypt::libbson mongo::mlib)
 target_include_directories (test-mongocrypt PRIVATE "${CMAKE_CURRENT_LIST_DIR}/test")
 
-add_test (mongocrypt test-mongocrypt WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+# Set a definition so that testcases can know where test-mongocrypt.exe was written to
+target_compile_definitions (test-mongocrypt PRIVATE "TEST_MONGOCRYPT_OUTPUT_PATH=\"$<TARGET_FILE:test-mongocrypt>\"")
+
+add_test (
+   NAME mongocrypt
+   COMMAND test-mongocrypt
+   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+   )
 
 foreach (test IN ITEMS path str)
    add_executable (mlib.${test}.test src/mlib/${test}.test.c)
