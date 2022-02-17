@@ -23,13 +23,6 @@ functions:
           set -o errexit
           chmod u+x libmongocrypt/.evergreen/*.sh
           ./libmongocrypt/.evergreen/print-env-info.sh
-    - command: s3.get
-      params:
-        aws_key: '${aws_key}'
-        aws_secret: '${aws_secret}'
-        remote_file: '${project}/${branch_name}/${libmongocrypt_s3_suffix}/mongo-c-driver-src.tar.gz'
-        bucket: mciuploads
-        extract_to: mongo-c-driver
 
   "tar and upload libmongocrypt libraries":
     - command: archive.targz_pack
@@ -77,13 +70,7 @@ functions:
           set -o errexit
 
           # Find cmake.
-          if [ "$OS" == "Windows_NT" ]; then
-             CMAKE=/cygdrive/c/cmake/bin/cmake
-          else
-             chmod u+x ./mongo-c-driver/.evergreen/find-cmake.sh
-             # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-             IGNORE_SYSTEM_CMAKE=1 . ./mongo-c-driver/.evergreen/find-cmake.sh
-          fi
+          . "./libmongocrypt/.evergreen/get-cmake.sh"
           # Get current version of libmongocrypt.
           cd libmongocrypt
           mongocrypt_version="$($CMAKE -P ./cmake/GetVersion.cmake 2>&1)"
@@ -508,13 +495,7 @@ tasks:
           set -o verbose
 
           # Find cmake.
-          if [ "$OS" == "Windows_NT" ]; then
-            CMAKE=/cygdrive/c/cmake/bin/cmake
-          else
-            chmod u+x ../mongo-c-driver/.evergreen/find-cmake.sh
-            # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-            IGNORE_SYSTEM_CMAKE=1 . ../mongo-c-driver/.evergreen/find-cmake.sh
-          fi
+          . "./libmongocrypt/.evergreen/get-cmake.sh"
           # Get the current version of libmongocrypt.
           mongocrypt_version="$($CMAKE -P ./cmake/GetVersion.cmake 2>&1)"
 
