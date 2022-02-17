@@ -17,6 +17,7 @@ echo "Begin compile process"
 evergreen_root="$(pwd)"
 
 . ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
+. ${evergreen_root}/libmongocrypt/.evergreen/get-cmake.sh
 
 if [ "$PPA_BUILD_ONLY" ]; then
     # Clean-up from previous build iteration
