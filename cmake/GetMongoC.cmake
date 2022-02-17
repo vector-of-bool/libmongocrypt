@@ -23,7 +23,7 @@ if (NOT DEFINED MONGOCRYPT_MONGOC_DIR)
       )
    # Populate it:
    FetchContent_GetProperties(embedded_mcd)
-   if (NOT embedded_libbson_POPULATED)
+   if (NOT embedded_mcd_POPULATED)
       FetchContent_Populate (embedded_mcd)
    endif ()
    # Store the directory path to the external mongoc project:
@@ -34,14 +34,23 @@ endif ()
 
 # Disable AWS_AUTH, to prevent it from building the kms-message symbols, which we build ourselves
 set (ENABLE_MONGODB_AWS_AUTH OFF)
+# Disable install() for the libbson static library. We'll do it ourselves
+set (ENABLE_STATIC BUILD_ONLY)
 # Add the subdirectory as a project. EXCLUDE_FROM_ALL to inhibit building and installing of components unless requested
 add_subdirectory ("${MONGOCRYPT_MONGOC_DIR}" _ext_mongoc EXCLUDE_FROM_ALL)
 
-# Define an alias target to the embedded libbson that we want
+# Define an interface target to be used to pivot the used libbson at build and import time
+add_library (_mongocrypt-libbson INTERFACE)
+add_library (_mongocrypt::libbson ALIAS _mongocrypt-libbson)
+install (TARGETS _mongocrypt-libbson EXPORT mongocrypt_targets)
+
+# Link to the requested libbson, only exporting that usage for the local build tree.
+# The mongocrypt-config file will later add the appropriate link library for downstream
+# users.
 if (ENABLE_SHARED_BSON)
-   add_library (_mongocrypt::libbson ALIAS bson_static)
+   target_link_libraries (_mongocrypt-libbson INTERFACE $<BUILD_INTERFACE:bson_shared>)
 else ()
-   add_library (_mongocrypt::libbson ALIAS bson_shared)
+   target_link_libraries (_mongocrypt-libbson INTERFACE $<BUILD_INTERFACE:bson_static>)
 endif ()
 
 # And an alias to the mongoc target for use in some test cases
@@ -52,3 +61,11 @@ target_include_directories (mongoc_shared
       "$<BUILD_INTERFACE:${MONGOCRYPT_MONGOC_DIR}/src/libmongoc/src>"
       "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/_ext_mongoc/src/libmongoc/src/mongoc>"
    )
+
+if (ENABLE_STATIC)
+   # We want the static libbson target from the embedded mongoc. Enable the static library as
+   # part of "all", and install the archive alongside the rest of our static libraries.
+   # (Useful for some users for convenience of static-linking libmongocrypt: CDRIVER-3187)
+   set_property (TARGET bson_static PROPERTY EXCLUDE_FROM_ALL FALSE)
+   install (TARGETS bson_static ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif ()

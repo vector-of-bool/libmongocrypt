@@ -19,25 +19,23 @@ option (ENABLE_BUILD_FOR_PPA "Maintainer-only option for preparing PPA build" OF
 if (ENABLE_SHARED_BSON AND ENABLE_BUILD_FOR_PPA)
    message (FATAL_ERROR "PPA build requires static linking to libbson")
 endif ()
-option (ENABLE_ONLINE_TESTS "Enable tests that require online connectivity" ON)
+option (ENABLE_ONLINE_TESTS "Enable tests that require online connectivity" OFF)
 
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
+list (INSERT CMAKE_MODULE_PATH 0 "${PROJECT_SOURCE_DIR}/cmake")
+
+include (GenerateExportHeader)
+include (GNUInstallDirs)
+include (CTest)
+find_package (Threads REQUIRED)
 
 # Get a mongo-c-driver for a libbson.
 include (GetMongoC)
 
-find_package ( Threads REQUIRED )
-
 add_subdirectory (bindings/cs)
-
-include (GenerateExportHeader)
-include (GNUInstallDirs)
-
-include (CTest)
 
 set (MONGOCRYPT_PUBLIC_HEADERS
    src/mongocrypt-compat.h
-)
+   )
 
 set (MONGOCRYPT_SOURCES
    src/crypto/cng.c
@@ -370,10 +368,6 @@ install (
    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-# This export set is not installed, and is only to allow export() of the mlib-using targets
-install (TARGETS _mongo-mlib EXPORT _exports_for_export)
-export (EXPORT _exports_for_export)
-
 install (
    FILES
       ${MONGOCRYPT_PUBLIC_HEADERS}
@@ -449,29 +443,16 @@ if (ENABLE_STATIC)
 endif ()
 
 include (CMakePackageConfigHelpers)
-set (INCLUDE_INSTALL_DIRS "${CMAKE_INSTALL_INCLUDEDIR}/mongocrypt")
-set (LIBRARY_INSTALL_DIRS ${CMAKE_INSTALL_LIBDIR})
-
 write_basic_package_version_file (
    "${CMAKE_CURRENT_BINARY_DIR}/mongocrypt/mongocrypt-config-version.cmake"
    COMPATIBILITY AnyNewerVersion
-)
-
-export (EXPORT mongocrypt_targets
-   NAMESPACE mongo::
-   FILE "${CMAKE_CURRENT_BINARY_DIR}/mongocrypt/mongocrypt_targets.cmake"
-)
-
-configure_file (cmake/mongocrypt-config.cmake
-   "${CMAKE_CURRENT_BINARY_DIR}/mongocrypt/mongocrypt-config.cmake"
-   COPYONLY
 )
 
 install (EXPORT mongocrypt_targets
    NAMESPACE mongo::
    FILE mongocrypt_targets.cmake
    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mongocrypt
-)
+   )
 
 install (
    FILES
@@ -481,5 +462,4 @@ install (
       ${CMAKE_INSTALL_LIBDIR}/cmake/mongocrypt
    COMPONENT
       Devel
-)
-
+   )
