@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eux
+set -ex
 
 _version=3.22.2
 _prefix=$PWD/_cmake
