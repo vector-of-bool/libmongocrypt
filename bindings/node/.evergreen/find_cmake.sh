@@ -30,7 +30,7 @@ find_cmake ()
   if [ -z "$CMAKE" -o -z "$( $CMAKE --version 2>/dev/null )" ]; then
      # Some images have no cmake yet, or a broken cmake (see: BUILD-8570)
      echo "-- MAKE CMAKE --"
-     CMAKE_INSTALL_DIR=$(readlink -f cmake-install)
+     CMAKE_INSTALL_DIR=$(owd)/cmake-install
      curl --retry 5 https://cmake.org/files/v3.11/cmake-3.11.0.tar.gz -sS --max-time 120 --fail --output cmake.tar.gz
      tar xzf cmake.tar.gz
      cd cmake-3.11.0

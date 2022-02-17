@@ -42,7 +42,7 @@ cd linker_tests
 
 # Make libbson1 and libbson2
 $libmongocrypt_root/.evergreen/prep_c_driver_source.sh
-mcd_dir=$(readlink -m mongo-c-driver)
+mcd_dir=$(pwd)/mongo-c-driver
 
 . "${libmongocrypt_root}/.evergreen/get-cmake.sh"
 
