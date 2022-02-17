@@ -8,7 +8,7 @@ _prefix=$PWD/_cmake
 if test -n "${CMAKE:-}" && test -f "${CMAKE}"; then
     # Do nothing. CMake is already found
     true
-elif test -f /Applications/; then
+elif test -d /Applications/; then
     # We're on macOS
     curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-macos-universal.tar.gz" \
         -sLo "$PWD/cmake.tgz"
@@ -17,7 +17,7 @@ elif test -f /Applications/; then
         -C "${_prefix}" \
         -f "$PWD/cmake.tgz"
     CMAKE=${_prefix}/bin/cmake
-elif test -f /cygdrive/c/; then
+elif test -d /cygdrive/c/; then
     # We are on Windows
     curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-windows-x86_64.zip" \
         -sLo "$PWD/cmake.zip"
