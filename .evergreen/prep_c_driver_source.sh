@@ -3,10 +3,10 @@
 set -o xtrace
 set -o errexit
 
-# Clone mongo-c-driver and check out to a tagged version.
+# Download mongo-c-driver source at pinned version for testing
 MONGO_C_DRIVER_VERSION=1.17.0
 
-# Force checkout with lf endings since .sh must have lf, not crlf on Windows
-git clone git@github.com:mongodb/mongo-c-driver.git --config core.eol=lf --config core.autocrlf=false --depth=1 --branch $MONGO_C_DRIVER_VERSION
+mkdir -p mongo-c-driver
+curl -sL "https://github.com/mongodb/mongo-c-driver/archive/refs/tags/${MONGO_C_DRIVER_VERSION}.tar.gz" | \
+    tar -xzf - --strip-components=1 -C mongo-c-driver
 echo $MONGO_C_DRIVER_VERSION > mongo-c-driver/VERSION_CURRENT
-sed -i.orig -E -e 's/(elif )(command -v cmake 2>\/dev\/null; then)/\1[ -z "\$IGNORE_SYSTEM_CMAKE" ] \&\& \2/' mongo-c-driver/.evergreen/find-cmake.sh && rm -f mongo-c-driver/.evergreen/find-cmake.sh.orig
