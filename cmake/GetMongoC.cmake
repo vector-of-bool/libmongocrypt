@@ -36,6 +36,8 @@ endif ()
 set (ENABLE_MONGODB_AWS_AUTH OFF)
 # Disable install() for the libbson static library. We'll do it ourselves
 set (ENABLE_STATIC BUILD_ONLY)
+# Disable over-alignment of bson types
+set (ENABLE_EXTRA_ALIGNMENT OFF CACHE BOOL "Toggle extra alignment in libbson")
 # External mongo-c-driver does not build warning-free
 if (MSVC)
    add_compile_options (/w)
