@@ -25,7 +25,12 @@ elif test -d /cygdrive/c/; then
     unzip -d "${_prefix}" "$PWD/cmake.zip"
     CMAKE="${_prefix}/cmake-${_version}-windows-x86_64/bin/cmake.exe"
 elif type uname > /dev/null && test "$(uname -s)" = "Linux"; then
-    curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-linux-$(uname -p).sh" \
+    _arch=$(uname -p)
+    if test "${_arch}" = "unknown"; then
+        echo "uname reported arch to be 'unknown'. We'll default to x86_64 for now"
+        _arch="x86_64"
+    fi
+    curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-linux-${_arch}.sh" \
         -sLo "$PWD/cmake.sh"
     mkdir -p "${_prefix}"
     sh "$PWD/cmake.sh" --exclude-subdir "--prefix=${_prefix}" --skip-license
