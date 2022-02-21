@@ -48,7 +48,7 @@ typedef void (*mlib_init_once_fn_t) (void);
 /**
  * An indirection layer for mlib_once on Windows platforms. Do not use directly.
  */
-static inline BOOL
+static inline BOOL WINAPI
 _mlib_win32_once_callthru (PINIT_ONCE once, PVOID param, PVOID *ctx)
 {
    (void) once;
