@@ -21,6 +21,9 @@ mkdir -p "${BIN_DIR}"
 export PATH="$BIN_DIR:/opt/mongodbtoolchain/v2/bin:$PATH"
 
 . ./.evergreen/get-cmake.sh
+if [ "${OS}" = "Windows_NT" ]; then
+    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -T host=x64 -A x64"
+fi
 
 # this needs to be explicitly exported for the nvm install below
 export NVM_DIR="${NODE_ARTIFACTS_PATH}/nvm"

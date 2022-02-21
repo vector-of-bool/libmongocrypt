@@ -12,6 +12,9 @@ pushd $evergreen_root
 pushd mongo-c-driver
 
 . "${evergreen_root}/libmongocrypt/.evergreen/get-cmake.sh"
+if [ "${OS}" = "Windows_NT" ]; then
+    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -T host=x64 -A x64"
+fi
 
 if [ "$MACOS_UNIVERSAL" = "ON" ]; then
     ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
