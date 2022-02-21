@@ -1,11 +1,6 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.15)
 
-if (CMAKE_VERSION VERSION_EQUAL 3.12 OR CMAKE_VERSION VERSION_GREATER 3.12)
-   project (mongocrypt C)
-else ()
-   # GenerateExportHeader only works with C with 3.12 - https://gitlab.kitware.com/cmake/cmake/commit/de348a9638bd51af4523f36c68884b901d4aff18
-   project (mongocrypt C CXX)
-endif ()
+project (mongocrypt C)
 
 set (CMAKE_C_STANDARD 99)
 

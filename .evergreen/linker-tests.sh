@@ -44,21 +44,7 @@ cd linker_tests
 $libmongocrypt_root/.evergreen/prep_c_driver_source.sh
 cd mongo-c-driver
 
-# Use C driver helper script to find cmake binary, stored in $CMAKE.
-if [ "$OS" == "Windows_NT" ]; then
-    CMAKE=/cygdrive/c/cmake/bin/cmake
-    ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
-else
-    chmod u+x ./.evergreen/find-cmake.sh
-    # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-    IGNORE_SYSTEM_CMAKE=1 . ./.evergreen/find-cmake.sh
-    # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
-    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
-    MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-    if [ "darwin" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
-        CMAKE=cmake
-    fi
-fi
+. "${libmongocrypt_root}/.evergreen/get-cmake.sh"
 
 if [ "$MACOS_UNIVERSAL" = "ON" ]; then
     ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
@@ -70,7 +56,7 @@ cd cmake-build
 INSTALL_PATH="$(system_path $linker_tests_root/install/bson1)"
 SRC_PATH="$(system_path ../)"
 $CMAKE -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+$CMAKE --build . --parallel --target install --config RelWithDebInfo
 # Make libbson2
 cd ..
 git reset --hard
@@ -79,7 +65,7 @@ cd cmake-build
 INSTALL_PATH="$(system_path $linker_tests_root/install/bson2)"
 SRC_PATH="$(system_path ../)"
 $CMAKE -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+$CMAKE --build . --parallel --target install --config RelWithDebInfo
 
 # Build libmongocrypt, static linking against libbson2
 cd $linker_tests_root/libmongocrypt-cmake-build
@@ -87,7 +73,7 @@ PREFIX_PATH="$(system_path $linker_tests_root/install/bson2)"
 INSTALL_PATH="$(system_path $linker_tests_root/install/libmongocrypt)"
 SRC_PATH="$(system_path $libmongocrypt_root)"
 $CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+$CMAKE --build . --parallel --target install --config RelWithDebInfo
 
 echo "Test case: Modelling libmongoc's use"
 # app links against libbson1.so
@@ -96,7 +82,7 @@ cd $linker_tests_root/app-cmake-build
 PREFIX_PATH="$(system_path $linker_tests_root/install/bson1);$(system_path $linker_tests_root/install/libmongocrypt)"
 SRC_PATH="$(system_path $linker_tests_deps_root/app)"
 $CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" "$SRC_PATH"
-$CMAKE --build . --target app --config RelWithDebInfo
+$CMAKE --build . --parallel --target app --config RelWithDebInfo
 
 if [ "$OS" == "Windows_NT" ]; then
     export PATH="$PATH:$linker_tests_root/install/bson1/bin:$linker_tests_root/install/libmongocrypt/bin"
@@ -113,5 +99,8 @@ check_output () {
     fi
     echo "ok"
 }
+
+# Both the bson_malloc0 patched versions will print. libmongocrypt dylib contains the second patched
+# version, and the app refers to the first patched version
 check_output ".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
 exit 0
