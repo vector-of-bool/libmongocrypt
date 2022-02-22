@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eux
+set -ex
 
 # The version of CMake that we will be downloading
 _version=3.22.2
