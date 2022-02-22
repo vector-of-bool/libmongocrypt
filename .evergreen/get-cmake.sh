@@ -17,26 +17,26 @@ function abspath() {
     local _fname="$(basename "$arg")"
     if test "$_parent" = "."; then
         # Replace the leading '.' with the working directory
-        ret="$PWD"
+        _parent="$PWD"
     elif test "$_parent" = ".."; then
         # Replace a leading '..' with the parent of the working directory
-        ret="$(dirname "$PWD")"
+        _parent="$(dirname "$PWD")"
     elif test "$arg" = "/"; then
         # A top-level '/' is just the top
-        ret="/"
+        _parent="/"
     else
         # Resolve the parent path
         _parent="$(abspath "$_parent")"
-        if test "$_fname" = ".."; then
-            # Strip one component
-            ret="$(dirname "$_parent")"
-        elif test "$_fname" = "."; then
-            # Drop a '.' in the middle of a path
-            ret="$_parent"
-        else
-            # Join the result
-            ret="$_parent/$_fname"
-        fi
+    fi
+    if test "$_fname" = ".."; then
+        # Strip one component
+        ret="$(dirname "$_parent")"
+    elif test "$_fname" = "."; then
+        # Drop a '.' in the middle of a path
+        ret="$_parent"
+    else
+        # Join the result
+        ret="$_parent/$_fname"
     fi
     # Remove duplicate dir separators
     while [[ "$ret" =~ "//" ]]; do
@@ -113,3 +113,5 @@ function cmake_build_py() {
     set -e
     python -u "${_CMAKE_BUILD_PY}" --cmake="${CMAKE}" "${@}"
 }
+
+echo $(abspath ../foo/bar)
