@@ -68,7 +68,7 @@ CMAKE="${_cmake_prefix}/bin/cmake"
 
 _CMAKE_BUILD_PY="${THIS_DIR}/build.py"
 
-function cmake-build-py() {
+function cmake_build_py() {
     set -e
     python -u "${_CMAKE_BUILD_PY}" --cmake="${CMAKE}" "${@}"
 }
