@@ -29,7 +29,8 @@ pushd $TOP_DIR
 # of the versions that can be built
 export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.12\""
 if [ "$OS" == "Windows_NT" ]; then
-  export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDebug"
+  # Older mongoc project does not respect MSVC_RUNTIME_LIBRARY. Set it with a flag:
+  export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
 fi
 
 . ${TOP_DIR}/libmongocrypt/.evergreen/build_install_bson.sh
