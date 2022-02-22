@@ -20,7 +20,8 @@ mkdir -p "${BIN_DIR}"
 # Add mongodb toolchain to path
 export PATH="$BIN_DIR:/opt/mongodbtoolchain/v2/bin:$PATH"
 
-. ./.evergreen/get-cmake.sh
+. "${PROJECT_DIRECTORY}/.evergreen/get-cmake.sh"
+
 if [ "${OS}" = "Windows_NT" ]; then
     ADDITIONAL_CMAKE_FLAGS="-T host=x64 -A x64"
 fi

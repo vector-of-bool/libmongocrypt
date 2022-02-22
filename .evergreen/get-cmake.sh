@@ -1,9 +1,12 @@
 #!/bin/bash
 
-set -ex
+set -eux
 
 # The version of CMake that we will be downloading
 _version=3.22.2
+
+THIS_FILE=$(realpath "${BASH_SOURCE[0]}")
+THIS_DIR=$(dirname "${THIS_FILE}")
 
 # Find the user-local caches directory
 if test -n "${XDG_CACHE_HOME:-}"; then
@@ -62,3 +65,10 @@ else
 fi
 
 CMAKE="${_cmake_prefix}/bin/cmake"
+
+_CMAKE_BUILD_PY="${THIS_DIR}/build.py"
+
+function cmake-build-py() {
+    set -e
+    python -u "${_CMAKE_BUILD_PY}" --cmake="${CMAKE}" "${@}"
+}
