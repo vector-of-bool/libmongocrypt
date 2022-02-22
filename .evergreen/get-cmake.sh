@@ -5,8 +5,45 @@ set -ex
 # The version of CMake that we will be downloading
 _version=3.22.2
 
-THIS_FILE=$(realpath "${BASH_SOURCE[0]}")
-THIS_DIR=$(dirname "${THIS_FILE}")
+# Given a path string, convert it to an absolute path
+function abspath() {
+    set +x
+    set -eu
+    local ret
+    local arg="$1"
+    # The parent path:
+    local _parent="$(dirname "$arg")"
+    # The filename part:
+    local _fname="$(basename "$arg")"
+    if test "$_parent" = "."; then
+        # Replace the leading '.' with the working directory
+        ret="$PWD"
+    elif test "$_parent" = ".."; then
+        # Replace a leading '..' with the parent of the working directory
+        ret="$(dirname "$PWD")"
+    elif test "$arg" = "/"; then
+        # A top-level '/' is just the top
+        ret="/"
+    else
+        # Resolve the parent path
+        _parent="$(abspath "$_parent")"
+        if test "$_fname" = ".."; then
+            # Strip one component
+            ret="$(dirname "$_parent")"
+        elif test "$_fname" = "."; then
+            # Drop a '.' in the middle of a path
+            ret="$_parent"
+        else
+            # Join the result
+            ret="$_parent/$_fname"
+        fi
+    fi
+    # Remove duplicate dir separators
+    while [[ "$ret" =~ "//" ]]; do
+        ret="${ret//\/\//\/}"
+    done
+    echo "$ret"
+}
 
 # Find the user-local caches directory
 if test -n "${XDG_CACHE_HOME:-}"; then
@@ -21,6 +58,8 @@ else
     echo "No caching directory found for this platform" 2>&1
     _caches_root="$(pwd)/_cache"
 fi
+
+_caches_root="$(abspath "$_caches_root")"
 
 _cmake_prefix=${_caches_root}/mongocrypt-build/_cmake-${_version}
 _cmake_tmp="${_cmake_prefix}.tmp"
@@ -66,6 +105,8 @@ fi
 
 CMAKE="${_cmake_prefix}/bin/cmake"
 
+THIS_FILE="$(abspath "${BASH_SOURCE[0]}")"
+THIS_DIR="$(dirname "${THIS_FILE}")"
 _CMAKE_BUILD_PY="${THIS_DIR}/build.py"
 
 function cmake_build_py() {

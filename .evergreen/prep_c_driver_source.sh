@@ -10,6 +10,5 @@ MONGO_C_DRIVER_VERSION=1.17.0
 git clone git@github.com:mongodb/mongo-c-driver.git --config core.eol=lf --config core.autocrlf=false --depth=1 --branch $MONGO_C_DRIVER_VERSION
 echo $MONGO_C_DRIVER_VERSION > mongo-c-driver/VERSION_CURRENT
 
-THIS_FILE=$(realpath "${BASH_SOURCE[0]}")
-THIS_DIR=$(dirname "${THIS_FILE}")
+THIS_DIR=$(dirname "${BASH_SOURCE[0]}")
 cp "${THIS_DIR}/get-cmake.sh" mongo-c-driver/.evergreen/find-cmake.sh
