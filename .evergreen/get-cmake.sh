@@ -98,7 +98,7 @@ function get_cmake_exe() {
         curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-linux-${_arch}.sh" \
             -sLo "$PWD/cmake.sh"
         mkdir -p "${_cmake_tmp}"
-        sh "$PWD/cmake.sh" --exclude-subdir "--prefix=${_cmake_tmp}" --skip-license
+        sh "$PWD/cmake.sh" --exclude-subdir "--prefix=${_cmake_tmp}" --skip-license 1> /dev/null
         mv "${_cmake_tmp}" "${_cmake_prefix}"
     else
         echo "Don't know how to get a CMake for this platform" 1>&2
