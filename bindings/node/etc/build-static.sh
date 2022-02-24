@@ -10,7 +10,7 @@ mkdir -p $DEPS_PREFIX
 mkdir -p $BUILD_DIR
 mkdir -p $BUILD_DIR/libmongocrypt-build
 
-. "${LIBMONGOCRYPT_DIR}/.evergreen/get-cmake.sh"
+. "${LIBMONGOCRYPT_DIR}/.evergreen/init.sh"
 
 export BSON_INSTALL_PREFIX=$DEPS_PREFIX
 export MONGOCRYPT_INSTALL_PREFIX=$DEPS_PREFIX

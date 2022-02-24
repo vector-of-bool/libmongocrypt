@@ -1,37 +1,25 @@
 #!/bin/bash
 
-set -o xtrace
-set -o errexit
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-evergreen_root="$(pwd)"
-pushd $evergreen_root
+_build_flags=()
 
-. ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
+if [ "${OS:-}" = "Windows_NT" ]; then
+    _build_flags+=(-T host=x64 -A x64)
+fi
+
+if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
+    _build_flags+=(-D CMAKE_OSX_ARCHITECTURES="amd64;x86_64")
+fi
 
 # Build and install libbson.
-pushd mongo-c-driver
-
-. "${evergreen_root}/libmongocrypt/.evergreen/get-cmake.sh"
-if [ "${OS}" = "Windows_NT" ]; then
-    ADDITIONAL_CMAKE_FLAGS="-T host=x64 -A x64"
-fi
-
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
-    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
-fi
-
-$CMAKE --version
-
-# Remove remnants of any earlier build
-[ -d cmake-build ] && rm -rf cmake-build
-
-mkdir cmake-build
-pushd cmake-build
-$CMAKE -DENABLE_MONGOC=OFF ${ADDITIONAL_CMAKE_FLAGS} ${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_EXTRA_ALIGNMENT=OFF -DCMAKE_C_FLAGS="${BSON_EXTRA_CFLAGS}" -DCMAKE_INSTALL_PREFIX="${BSON_INSTALL_PREFIX}" ../
-echo "Installing libbson"
-$CMAKE --build . --parallel --target install --config RelWithDebInfo
-
-popd
-popd
-popd
-
+cmake_build_py \
+    -D ENABLE_MONGOC=OFF \
+    --config=RelWithDebInfo \
+    -D ENABLE_EXTRA_ALIGNMENT=OFF \
+    --install-prefix="${BSON_INSTALL_DIR}" \
+    --source-dir="$(abspath "${MONGO_C_DRIVER_DIR}")" \
+    --build-dir="$(abspath "${MONGO_C_DRIVER_BUILD_DIR}")" \
+    "${_build_flags[@]}" \
+    --install \
+    --wipe

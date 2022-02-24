@@ -1,13 +1,26 @@
 #!/bin/bash
 
-set -ex
+set -o errexit
+set -o pipefail
+set -o nounset
 
-# The version of CMake that we will be downloading
-_version=3.22.2
+# Print a message and return non-zero
+function fail() {
+    echo "${@}" 1>&2
+    return 1
+}
 
-# Given a path string, convert it to an absolute path
+# Determine whether we can execute the given name as a command
+function have_command() {
+    test "$#" -eq 1 || fail "have_command expects a single argument"
+    if type "${1}" > /dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+# Given a path string, convert it to an absolute path with no redundant components or directory separators
 function abspath() {
-    set +x
     set -eu
     local ret
     local arg="$1"
@@ -21,9 +34,9 @@ function abspath() {
     elif test "$_parent" = ".."; then
         # Replace a leading '..' with the parent of the working directory
         _parent="$(dirname "$PWD")"
-    elif test "$arg" = "/"; then
-        # A top-level '/' is just the top
-        _parent="/"
+    elif test "$arg" = "$_parent"; then
+        # A root directory is its own parent acording to 'dirname'
+        _parent="$_parent"
     else
         # Resolve the parent path
         _parent="$(abspath "$_parent")"
@@ -46,9 +59,57 @@ function abspath() {
     echo "$ret"
 }
 
+# Get the platform name: One of 'windows', 'macos', 'linux', or 'unknown'
+function os_name() {
+    test "$#" -eq 0 || fail "os_name accepts no arguments"
+    have_command uname || fail "No 'uname' executable found"
+
+    local _uname="$(uname | tr '[:upper:]' '[:lower:]')"
+    local _os_name="unknown"
+
+    if [[ "$_uname" =~ 'cywin|windows|mingw|msys' ]]; then
+        _os_name="windows"
+    elif test "$_uname" = 'darwin'; then
+        _os_name='macos'
+    elif test "$_uname" = 'linux'; then
+        _os_name='linux'
+    fi
+
+    echo $_os_name
+}
+
+OS_NAME="$(os_name)"
+
+_this_file="$(abspath "${BASH_SOURCE[0]}")"
+_this_dir="$(dirname "${_this_file}")"
+
+CI_DIR="${_this_dir}"
+LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
+
+BUILD_DIR="${LIBMONGOCRYPT_DIR}/_build"
+INSTALL_DIR="${LIBMONGOCRYPT_DIR}/_install"
+
+: "${EVERGREEN_DIR:="$(dirname "${LIBMONGOCRYPT_DIR}")"}"
+: "${MONGO_C_DRIVER_DIR:-"$EVERGREEN_DIR/mongo-c-driver"}"
+: "${LIBMONGOCRYPT_BUILD_DIR:="${BUILD_DIR}/libmongocrypt"}"
+: "${LIBMONGOCRYPT_INSTALL_DIR:="${INSTALL_DIR}/libmongocrypt"}"
+: "${MONGO_C_DRIVER_DIR:="${EVERGREEN_DIR}/mongo-c-driver"}"
+: "${MONGO_C_DRIVER_BUILD_DIR:="${BUILD_DIR}/mongo-c-driver"}"
+: "${BSON_INSTALL_DIR:="${INSTALL_DIR}/mongo-c-driver"}"
+
+if test "${OS_NAME}" = "windows"; then
+    : "${BUILD_DIR_INFIX:="RelWithDebInfo"}"
+else
+    : "${BUILD_DIR_INFIX:="."}"
+fi
+
 function get_cmake_exe() {
     set +x
     set -eu
+
+    # The version of CMake that we will be downloading
+    local _version=3.22.2
+    local _caches_root
 
     # Find the user-local caches directory
     if test -n "${XDG_CACHE_HOME:-}"; then
@@ -66,8 +127,8 @@ function get_cmake_exe() {
 
     _caches_root="$(abspath "$_caches_root")"
 
-    _cmake_prefix=${_caches_root}/mongocrypt-build/_cmake-${_version}
-    _cmake_tmp="${_cmake_prefix}.tmp"
+    local _cmake_prefix=${_caches_root}/mongocrypt-build/_cmake-${_version}
+    local _cmake_tmp="${_cmake_prefix}.tmp"
     test -d "${_cmake_tmp}" && rm -r "${_cmake_tmp}"
 
     if test -d "${_cmake_prefix}"; then
@@ -108,14 +169,10 @@ function get_cmake_exe() {
     echo "$_cmake_prefix/bin/cmake"
 }
 
-_this_file="$(abspath "${BASH_SOURCE[0]}")"
-_this_dir="$(dirname "${_this_file}")"
-_CMAKE_BUILD_PY="${_this_dir}/build.py"
+_CMAKE_BUILD_PY="${CI_DIR}/build.py"
 
 function cmake_build_py() {
-    set -e
-    python -u "${_CMAKE_BUILD_PY}" --cmake="${CMAKE}" "${@}"
+    set -eu
+    local _cmake="$(get_cmake_exe)"
+    python -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" --generator=Ninja "${@}"
 }
-
-# Define $CMAKE to the path to a CMake executable
-CMAKE="$(get_cmake_exe)"

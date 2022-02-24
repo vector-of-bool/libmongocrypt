@@ -3,14 +3,11 @@
 # Set extra cflags for libmongocrypt variables by setting LIBMONGOCRYPT_EXTRA_CFLAGS.
 #
 
-set -o xtrace
-set -o errexit
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 echo "Begin compile process"
 
 evergreen_root="$(pwd)"
-
-. ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
 
 cd $evergreen_root
 

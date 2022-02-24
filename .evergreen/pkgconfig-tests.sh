@@ -30,7 +30,6 @@ cd pkgconfig_tests
 $libmongocrypt_root/.evergreen/prep_c_driver_source.sh
 cd mongo-c-driver
 
-. "${libmongocrypt_root}/.evergreen/get-cmake.sh"
 if [ "${OS}" = "Windows_NT" ]; then
     ADDITIONAL_CMAKE_FLAGS="-T host=x64 -A x64"
 fi
