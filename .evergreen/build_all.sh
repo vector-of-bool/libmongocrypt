@@ -20,9 +20,7 @@ _build_flags+=(${ADDITIONAL_CMAKE_FLAGS:-} ${LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS:-})
 
 if [ "${PPA_BUILD_ONLY:-}" ]; then
     # Clean-up from previous build iteration
-    cd $evergreen_root
-    rm -rf "${INSTALL_DIR}" "${BUILD_DIR}"
-    rm -rf libmongocrypt/cmake-build* "${LIBMONGOCRYPT_INSTALL_DIR}"
+    rm -rf "${INSTALL_ROOT}" "${BUILD_ROOT}"
     _build_flags+=("--set=ENABLE_BUILD_FOR_PPA=ON")
 fi
 
@@ -42,13 +40,13 @@ if test "${CONFIGURE_ONLY:-}"; then
     _build_flags+=("--no-build")
 fi
 
-_build_flags+=("--config=RelWithDebInfo")
+_build_flags+=("--config=${DEFAULT_CMAKE_BUILD_TYPE}")
 
 cmake_build_py \
     -D CMAKE_PREFIX_PATH="${BSON_INSTALL_DIR}" \
-    --install-prefix=${LIBMONGOCRYPT_INSTALL_DIR} \
+    --install-prefix=${LIBMONGOCRYPT_INSTALL_ROOT} \
     --source-dir="${LIBMONGOCRYPT_DIR}" \
-    --build-dir="${LIBMONGOCRYPT_BUILD_DIR}/default" \
+    --build-dir="${LIBMONGOCRYPT_BUILD_ROOT}/default" \
     "${_build_flags[@]}" \
     --install \
     --wipe
@@ -60,12 +58,12 @@ fi
 
 # CDRIVER-3187, ensure the final distributed tarball contains the libbson static
 # library to support consumers that static link to libmongocrypt
-find ${BSON_INSTALL_DIR} \( -name libbson-static-1.0.a -o -name bson-1.0.lib -o -name bson-static-1.0.lib \) -execdir cp {} $(dirname $(find ${LIBMONGOCRYPT_INSTALL_DIR} -name libmongocrypt-static.a -o -name mongocrypt-static.lib)) \;
+find ${BSON_INSTALL_DIR} \( -name libbson-static-1.0.a -o -name bson-1.0.lib -o -name bson-static-1.0.lib \) -execdir cp {} $(dirname $(find ${LIBMONGOCRYPT_INSTALL_ROOT} -name libmongocrypt-static.a -o -name mongocrypt-static.lib)) \;
 
 # MONGOCRYPT-372, ensure macOS universal builds contain both x86_64 and arm64 architectures.
 if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
     echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures..."
-    ARCHS=$(lipo -archs $LIBMONGOCRYPT_INSTALL_DIR/lib/libmongocrypt.dylib)
+    ARCHS=$(lipo -archs $LIBMONGOCRYPT_INSTALL_ROOT/lib/libmongocrypt.dylib)
     if [[ "$ARCHS" == *"x86_64"* && "$ARCHS" == *"arm64"* ]]; then
         echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures... OK"
     else
@@ -83,9 +81,9 @@ fi
 cmake_build_py \
     -D CMAKE_PREFIX_PATH="${BSON_INSTALL_DIR}" \
     -D DISABLE_NATIVE_CRYPTO=YES \
-    --install-prefix="${LIBMONGOCRYPT_INSTALL_DIR}/nocrypto" \
+    --install-prefix="${LIBMONGOCRYPT_INSTALL_ROOT}/nocrypto" \
     --source-dir="${LIBMONGOCRYPT_DIR}" \
-    --build-dir="${LIBMONGOCRYPT_BUILD_DIR}/nocrypto" \
+    --build-dir="${LIBMONGOCRYPT_BUILD_ROOT}/nocrypto" \
     "${_build_flags[@]}" \
     --install \
     --wipe
@@ -94,9 +92,9 @@ cmake_build_py \
 cmake_build_py \
     -D CMAKE_PREFIX_PATH="${BSON_INSTALL_DIR}" \
     -D ENABLE_SHARED_BSON=YES \
-    --install-prefix=${LIBMONGOCRYPT_INSTALL_DIR}/sharedbson \
+    --install-prefix=${LIBMONGOCRYPT_INSTALL_ROOT}/sharedbson \
     --source-dir="${LIBMONGOCRYPT_DIR}" \
-    --build-dir="${LIBMONGOCRYPT_BUILD_DIR}/sharedbson" \
+    --build-dir="${LIBMONGOCRYPT_BUILD_ROOT}/sharedbson" \
     "${_build_flags[@]}" \
     --install \
     --wipe

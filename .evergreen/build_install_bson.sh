@@ -16,7 +16,7 @@ fi
 # Build and install libbson.
 cmake_build_py \
     -D ENABLE_MONGOC=OFF \
-    --config=RelWithDebInfo \
+    --config="${DEFAULT_CMAKE_BUILD_TYPE}" \
     -D ENABLE_EXTRA_ALIGNMENT=OFF \
     --install-prefix="${BSON_INSTALL_DIR}" \
     --source-dir="$(abspath "${MONGO_C_DRIVER_DIR}")" \

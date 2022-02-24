@@ -30,18 +30,18 @@ function run_test() {
 }
 
 run_test "kms-message" \
-    "${LIBMONGOCRYPT_BUILD_DIR}/default/kms-message/${BUILD_DIR_INFIX}/test_kms_request"
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/kms-message/${BUILD_DIR_INFIX}/test_kms_request"
 
 run_test "libmongocrypt main" \
     env MONGOCRYPT_TRACE=ON \
-    "${LIBMONGOCRYPT_BUILD_DIR}/default/${BUILD_DIR_INFIX}/test-mongocrypt"
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/test-mongocrypt"
 
 run_test "Example state machine" \
-    "${LIBMONGOCRYPT_BUILD_DIR}/default/${BUILD_DIR_INFIX}/example-state-machine"
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/example-state-machine"
 
 run_test "Example state machine (statically linked)" \
-    "${LIBMONGOCRYPT_BUILD_DIR}/default/${BUILD_DIR_INFIX}/example-state-machine-static"
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/example-state-machine-static"
 
 run_test "libmongocrypt with no native crypto" \
     env MONGOCRYPT_TRACE=ON  \
-    "${LIBMONGOCRYPT_BUILD_DIR}/nocrypto/${BUILD_DIR_INFIX}/test-mongocrypt"
+    "${LIBMONGOCRYPT_BUILD_ROOT}/nocrypto/${BUILD_DIR_INFIX}/test-mongocrypt"

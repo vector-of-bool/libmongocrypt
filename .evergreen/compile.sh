@@ -13,5 +13,5 @@
 set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-bash "${CI_DIR}/prep_c_driver_source.sh"
+. "${CI_DIR}/prep_c_driver_source.sh"
 bash "${CI_DIR}/build_all.sh"

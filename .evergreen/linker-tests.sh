@@ -11,7 +11,7 @@ set -e
 have_command git || fail "linker-tests.sh requires a Git executable on the PATH"
 
 # A scratch directory where we will do our work:
-_scratch_dir="${BUILD_DIR}/linker_tests"
+_scratch_dir="${BUILD_ROOT}/linker_tests"
 # Patches and the test app:
 _linker_tests_deps_dir="${CI_DIR}/linker_tests_deps"
 
@@ -33,7 +33,7 @@ mkdir -p "${_scratch_dir}"
 git clone --quiet "file://${MONGO_C_DRIVER_DIR}" --depth=1 "${_mcd_clone_dir}"
 
 # Setup common build options, passed to cmake_build_py
-_build_flags=(--config=RelWithDebInfo)
+_build_flags=(--config="${DEFAULT_CMAKE_BUILD_TYPE}")
 if [ "${OS_NAME}" = "Windows_NT" ]; then
     _build_flags+=(-T host=x64 -A x64)
 fi

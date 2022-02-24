@@ -102,19 +102,23 @@ _this_dir="$(dirname "${_this_file}")"
 CI_DIR="${_this_dir}"
 LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
 
-BUILD_DIR="${LIBMONGOCRYPT_DIR}/_build"
-INSTALL_DIR="${LIBMONGOCRYPT_DIR}/_install"
+BUILD_ROOT="${LIBMONGOCRYPT_DIR}/_build"
+INSTALL_ROOT="${LIBMONGOCRYPT_DIR}/_install"
 
 : "${EVERGREEN_DIR:="$(dirname "${LIBMONGOCRYPT_DIR}")"}"
 : "${MONGO_C_DRIVER_DIR:-"$EVERGREEN_DIR/mongo-c-driver"}"
-: "${LIBMONGOCRYPT_BUILD_DIR:="${BUILD_DIR}/libmongocrypt"}"
-: "${LIBMONGOCRYPT_INSTALL_DIR:="${INSTALL_DIR}/libmongocrypt"}"
+: "${LIBMONGOCRYPT_BUILD_ROOT:="${BUILD_ROOT}/libmongocrypt"}"
+: "${LIBMONGOCRYPT_INSTALL_ROOT:="${INSTALL_ROOT}/libmongocrypt"}"
 : "${MONGO_C_DRIVER_DIR:="${EVERGREEN_DIR}/mongo-c-driver"}"
-: "${MONGO_C_DRIVER_BUILD_DIR:="${BUILD_DIR}/mongo-c-driver"}"
-: "${BSON_INSTALL_DIR:="${INSTALL_DIR}/mongo-c-driver"}"
+: "${MONGO_C_DRIVER_BUILD_DIR:="${BUILD_ROOT}/mongo-c-driver"}"
+: "${BSON_INSTALL_DIR:="${INSTALL_ROOT}/mongo-c-driver"}"
 
+: "${DEFAULT_CMAKE_BUILD_TYPE:=RelWithDebInfo}"
+
+# On Windows, we use a multi-conf CMake generator by default, which inserts a
+# directory over build artifacts qualified by the CMake configuration type
 if test "${OS_NAME}" = "windows"; then
-    : "${BUILD_DIR_INFIX:="RelWithDebInfo"}"
+    : "${BUILD_DIR_INFIX:="${DEFAULT_CMAKE_BUILD_TYPE}"}"
 else
     : "${BUILD_DIR_INFIX:="."}"
 fi

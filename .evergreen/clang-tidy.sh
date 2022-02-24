@@ -10,5 +10,5 @@ set -e
 
 have_command "${CLANG_TIDY_EXECUTABLE}" || fail "No clang-tidy executable"
 
-python "${LIBMONGOCRYPT_DIR}/etc/list-compile-files.py" "${LIBMONGOCRYPT_BUILD_DIR}/default/" \
-    | xargs "$CLANG_TIDY_EXECUTABLE" -p "${LIBMONGOCRYPT_BUILD_DIR}/default/"
+python "${LIBMONGOCRYPT_DIR}/etc/list-compile-files.py" "${LIBMONGOCRYPT_BUILD_ROOT}/default/" \
+    | xargs "$CLANG_TIDY_EXECUTABLE" -p "${LIBMONGOCRYPT_BUILD_ROOT}/default/"
