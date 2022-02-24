@@ -4,9 +4,14 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+function log() {
+    echo "${@}" 1>&2
+    return 0
+}
+
 # Print a message and return non-zero
 function fail() {
-    echo "${@}" 1>&2
+    log "${@}"
     return 1
 }
 
@@ -36,7 +41,8 @@ function abspath() {
         _parent="$(dirname "$PWD")"
     elif test "$arg" = "$_parent"; then
         # A root directory is its own parent acording to 'dirname'
-        _parent="$_parent"
+        echo "$arg"
+        return 0
     else
         # Resolve the parent path
         _parent="$(abspath "$_parent")"
@@ -67,7 +73,7 @@ function os_name() {
     local _uname="$(uname | tr '[:upper:]' '[:lower:]')"
     local _os_name="unknown"
 
-    if [[ "$_uname" =~ 'cywin|windows|mingw|msys' ]]; then
+    if [[ "$_uname" =~ '.*cywin|windows|mingw|msys.*' ]] || have_command cmd.exe; then
         _os_name="windows"
     elif test "$_uname" = 'darwin'; then
         _os_name='macos'
@@ -76,6 +82,16 @@ function os_name() {
     fi
 
     echo $_os_name
+}
+
+# Ensure the given path is in a native format (converts cygwin paths to Windows-local paths)
+function native_path() {
+    test "$#" -eq 0 || fail "native_path expects one argument"
+    if test "${OS_NAME}" = "windows" && have_command cygpath; then
+        cygpath -w "${1}"
+    else
+        echo "${1}"
+    fi
 }
 
 OS_NAME="$(os_name)"
@@ -104,7 +120,6 @@ else
 fi
 
 function get_cmake_exe() {
-    set +x
     set -eu
 
     # The version of CMake that we will be downloading
@@ -114,14 +129,14 @@ function get_cmake_exe() {
     # Find the user-local caches directory
     if test -n "${XDG_CACHE_HOME:-}"; then
         _caches_root="${XDG_CACHE_HOME}"
-    elif test -n "${AppDataLocal:-}"; then
-        _caches_root="${LocalAppData}"
+    elif test -n "${LOCALAPPDATA:-}"; then
+        _caches_root="${LOCALAPPDATA}"
     elif test -d "$HOME/Library/Caches"; then
         _caches_root="${HOME}/Library/Caches"
     elif test -d "$HOME/.cache"; then
         _caches_root="${HOME}/.cache"
     else
-        echo "No caching directory found for this platform" 1>&2
+        log "No caching directory found for this platform" 1>&2
         _caches_root="$(pwd)/_cache"
     fi
 
@@ -134,8 +149,9 @@ function get_cmake_exe() {
     if test -d "${_cmake_prefix}"; then
         # We already have a CMake cached and downloaded
         true
-    elif test -d /Applications/; then
+    elif test "${OS_NAME}" = "macos"; then
         # We're on macOS
+        log "Downloading CMake ${_version} for macOS"
         curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-macos-universal.tar.gz" \
             -sLo "$PWD/cmake.tgz"
         mkdir -p "${_cmake_tmp}"
@@ -143,27 +159,29 @@ function get_cmake_exe() {
             -C "${_cmake_tmp}" \
             -f "$PWD/cmake.tgz"
         mv "${_cmake_tmp}" "${_cmake_prefix}"
-    elif test -d /cygdrive/c/; then
+    elif test "${OS_NAME}" = "windows"; then
         # We are on Windows
+        log "Downloading CMake ${_version} for Windows"
         curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-windows-x86_64.zip" \
             -sLo "$PWD/cmake.zip"
         mkdir -p "${_cmake_tmp}"
         unzip -d "${_cmake_tmp}" "$PWD/cmake.zip"
         mv "${_cmake_tmp}/cmake-${_version}-windows-x86_64" "${_cmake_prefix}"
-    elif type uname > /dev/null && test "$(uname -s)" = "Linux"; then
+    elif type uname > /dev/null && test "${OS_NAME}" = "linux"; then
         _arch=$(uname -p)
         if test "${_arch}" = "unknown"; then
-            echo "uname reported arch to be 'unknown'. We'll default to x86_64 for now" 1>&2
+            log "uname reported arch to be 'unknown'. We'll default to x86_64 for now"
             _arch="x86_64"
         fi
+        log "Downloading CMake ${_version} for Linux ${_arch}"
         curl "https://github.com/Kitware/CMake/releases/download/v${_version}/cmake-${_version}-linux-${_arch}.sh" \
             -sLo "$PWD/cmake.sh"
         mkdir -p "${_cmake_tmp}"
         sh "$PWD/cmake.sh" --exclude-subdir "--prefix=${_cmake_tmp}" --skip-license 1> /dev/null
         mv "${_cmake_tmp}" "${_cmake_prefix}"
     else
-        echo "Don't know how to get a CMake for this platform" 1>&2
-        exit 1
+        log "Don't know how to get a CMake for this platform"
+        return 1
     fi
 
     echo "$_cmake_prefix/bin/cmake"
@@ -174,5 +192,11 @@ _CMAKE_BUILD_PY="${CI_DIR}/build.py"
 function cmake_build_py() {
     set -eu
     local _cmake="$(get_cmake_exe)"
-    python -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" --generator=Ninja "${@}"
+    if have_command py; then
+        _py=py
+    else
+        _py=python
+    fi
+    log "Running CMake configure/build/install process: ${@}"
+    "${_py}" -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" "${@}"
 }

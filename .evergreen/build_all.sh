@@ -9,9 +9,10 @@
 # Set extra cflags for libmongocrypt variables by setting LIBMONGOCRYPT_EXTRA_CFLAGS.
 #
 
+set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-echo "Begin compile process"
+log "Begin compile process"
 
 _build_flags=()
 
@@ -20,6 +21,7 @@ _build_flags+=(${ADDITIONAL_CMAKE_FLAGS:-} ${LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS:-})
 if [ "${PPA_BUILD_ONLY:-}" ]; then
     # Clean-up from previous build iteration
     cd $evergreen_root
+    rm -rf "${INSTALL_DIR}" "${BUILD_DIR}"
     rm -rf libmongocrypt/cmake-build* "${LIBMONGOCRYPT_INSTALL_DIR}"
     _build_flags+=("--set=ENABLE_BUILD_FOR_PPA=ON")
 fi
@@ -43,6 +45,7 @@ fi
 _build_flags+=("--config=RelWithDebInfo")
 
 cmake_build_py \
+    -D CMAKE_PREFIX_PATH="${BSON_INSTALL_DIR}" \
     --install-prefix=${LIBMONGOCRYPT_INSTALL_DIR} \
     --source-dir="${LIBMONGOCRYPT_DIR}" \
     --build-dir="${LIBMONGOCRYPT_BUILD_DIR}/default" \

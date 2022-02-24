@@ -3,6 +3,7 @@
 # static analyzer.
 #
 
+set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 : "${CLANG_TIDY_EXECUTABLE:=/opt/mongodbtoolchain/v3/bin/clang-tidy}"

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 _build_flags=()

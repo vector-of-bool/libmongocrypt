@@ -9,6 +9,7 @@
 # Set the VALGRIND environment variable to "valgrind <opts>" to run through valgrind.
 #
 
+set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 if [ "${OS_NAME}" = "windows" ]; then
@@ -20,10 +21,10 @@ function run_test() {
     local _name="$1"
     shift
     if have_command valgrind; then
-        echo "Running test under valgrind: ${_name}"
+        log "Running test under valgrind: ${_name}"
         valgrind "${@}"
     else
-        echo "Running test: ${_name}"
+        log "Running test: ${_name}"
         command "${@}"
     fi
 }

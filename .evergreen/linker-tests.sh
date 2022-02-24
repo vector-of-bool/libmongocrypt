@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 # This script tests that a program can successfully link to a dynamic
@@ -71,7 +72,7 @@ cmake_build_py \
     --build-dir="${_build_prefix}/bson2" \
     --install
 
-# Build libmongocrypt with static linking against our libbson2
+# Build dynamic libmongocrypt that static links against our libbson2
 _lmcr_install_dir="${_install_prefix}/libmongocrypt"
 cmake_build_py \
     "${_build_flags[@]}" \
@@ -87,7 +88,7 @@ cmake_build_py \
 _app_build_dir="${_build_prefix}/app"
 cmake_build_py \
     "${_build_flags[@]}" \
-    -D CMAKE_PREFIX_PATH="$_bson1_install_dir;$_lmcr_install_dir" \
+    -D CMAKE_PREFIX_PATH="$(native_path "$_bson1_install_dir");$(native_path "$_lmcr_install_dir")" \
     --source-dir="${_linker_tests_deps_dir}/app" \
     --build-dir="${_app_build_dir}"
 
