@@ -228,7 +228,7 @@ function get_cmake_exe() {
         _found="/Applications/Cmake.app/Contents/bin/cmake"
     elif [ -f "/opt/cmake/bin/cmake" ]; then
         _found="/opt/cmake/bin/cmake"
-    elif [ -z "${IGNORE_SYSTEM_CMAKE:-}" ] && have_command cmake; then
+    elif [ "${OS_NAME}" = "windows" ] && have_command cmake; then
         _found=cmake
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
         local _expect="$(pwd)/cmake-${_version}/bin/cmake"
