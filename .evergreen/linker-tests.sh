@@ -30,19 +30,23 @@ rm -rf "${_scratch_dir}"
 mkdir -p "${_scratch_dir}"
 
 # Clone the MONGO_C_DRIVER that we have been using for CI
+debug "Cloning mongo-c-driver from directory [${MONGO_C_DRIVER_DIR}]"
 git clone --quiet "file://${MONGO_C_DRIVER_DIR}" --depth=1 "${_mcd_clone_dir}"
 
 # Setup common build options, passed to cmake_build_py
 _build_flags=(--config="${DEFAULT_CMAKE_BUILD_TYPE}")
 if [ "${OS_NAME}" = "Windows_NT" ]; then
+    debug "Building for Windows x64"
     _build_flags+=(-T host=x64 -A x64)
 fi
 
 if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
+    debug "Building for macOS universal arm64+x86_64"
     _build_flags+=(-D "CMAKE_OSX_ARCHITECTURES=arm64;x86_64")
 fi
 
 # Make libbson1
+debug "Creating libbson1"
 _bson1_install_dir="$_install_prefix/bson1"
 git -C "${_mcd_clone_dir}" apply \
     --ignore-whitespace \
@@ -58,6 +62,7 @@ cmake_build_py \
 
 # Make libbson2
 # Reset the source and apply a different patch
+debug "Creating libbson2"
 git -C "${_mcd_clone_dir}" checkout --force -- "${_mcd_clone_dir}"
 git -C "${_mcd_clone_dir}" apply \
     --ignore-whitespace \
@@ -73,6 +78,7 @@ cmake_build_py \
     --install
 
 # Build dynamic libmongocrypt that static links against our libbson2
+debug "Creating libmongocrypt linking statically against libbson2"
 _lmcr_install_dir="${_install_prefix}/libmongocrypt"
 cmake_build_py \
     "${_build_flags[@]}" \
@@ -85,6 +91,7 @@ cmake_build_py \
 
 # Now build an application that links both to dynamic libbson1 and the dynamic
 # libmongocrypt that was statically linked to libbson2
+debug "Creating test application static linking to libbson1 and dynamic linking to libmongocrypt"
 _app_build_dir="${_build_prefix}/app"
 cmake_build_py \
     "${_build_flags[@]}" \
@@ -93,6 +100,7 @@ cmake_build_py \
     --build-dir="${_app_build_dir}"
 
 # Check that the built app gives the right output
+debug "Testing created application..."
 _app_output="$(command "${_app_build_dir}/${BUILD_DIR_INFIX}/app")"
 _expect_output=".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
 if [[ "${_app_output}" != "${_expect_output}" ]]; then

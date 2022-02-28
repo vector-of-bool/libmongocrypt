@@ -67,10 +67,20 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+if test "${TRACE:-0}" != "0"; then
+    set -o xtrace
+fi
+
 # Write a message to stderr
 function log() {
     echo "${@}" 1>&2
     return 0
+}
+
+function debug() {
+    if test "${DEBUG:-0}" != "0"; then
+        log "${@}"
+    fi
 }
 
 # Print a message and return non-zero
@@ -93,6 +103,7 @@ function abspath() {
     set -eu
     local ret
     local arg="$1"
+    debug "Resolve path [$1]"
     # The parent path:
     local _parent="$(dirname "$arg")"
     # The filename part:
@@ -109,7 +120,7 @@ function abspath() {
         return 0
     else
         # Resolve the parent path
-        _parent="$(abspath "$_parent")"
+        _parent="$(DEBUG=0 abspath "$_parent")"
     fi
     # At this point $_parent is an absolute path
     if test "$_fname" = ".."; then
@@ -126,6 +137,7 @@ function abspath() {
     while [[ "$ret" =~ "//" ]]; do
         ret="${ret//\/\///}"
     done
+    debug "Resolved to: [$arg] -> [$ret]"
     echo "$ret"
 }
 
@@ -152,7 +164,10 @@ function os_name() {
 function native_path() {
     test "$#" -eq 1 || fail "native_path expects one argument"
     if test "${OS_NAME}" = "windows" && have_command cygpath; then
-        cygpath -w "${1}"
+        debug "Convert path [$1]"
+        local r="$(cygpath -w "${1}")"
+        debug "Convert to [$r]"
+        echo "$r"
     else
         echo "${1}"
     fi
@@ -196,12 +211,14 @@ function get_cmake_exe() {
     # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
     local _march=$(uname -m | tr '[:upper:]' '[:lower:]')
     if [ "darwin" = "$OS_NAME" -a "arm64" = "$_march" ]; then
+        debug "Using system's CMake"
         echo "cmake"  # Just use the one on the PATH
         return 0
     fi
 
     if [ ! -z "${CMAKE:-}" ]; then
         # Use the one in the environment
+        debug "Using environment \$CMAKE: [$CMAKE]"
         _found="$CMAKE"
     elif [ -f "/Applications/cmake-3.2.2-Darwin-x86_64/CMake.app/Contents/bin/cmake" ]; then
         _found="/Applications/cmake-3.2.2-Darwin-x86_64/CMake.app/Contents/bin/cmake"
@@ -212,13 +229,14 @@ function get_cmake_exe() {
     elif [ -z "${IGNORE_SYSTEM_CMAKE:-}" ] && have_command cmake; then
         _found=cmake
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
+        debug "Downloading CMake binaries for Linux"
         curl --retry 5 https://cmake.org/files/v3.11/cmake-3.11.0-Linux-x86_64.tar.gz -sS --max-time 120 --fail --output cmake.tar.gz
         mkdir cmake-3.11.0
         tar xzf cmake.tar.gz -C cmake-3.11.0 --strip-components=1
         _found=$(pwd)/cmake-3.11.0/bin/cmake
     elif [ -z "${CMAKE:-}" -o -z "$( ${CMAKE:-} --version 2>/dev/null )" ]; then
         # Some images have no cmake yet, or a broken cmake (see: BUILD-8570)
-        log "-- MAKE CMAKE --"
+        debug "Building CMake from source..."
         CMAKE_INSTALL_DIR=$(readlink -f cmake-install)
         curl --retry 5 https://cmake.org/files/v3.11/cmake-3.11.0.tar.gz -sS --max-time 120 --fail --output cmake.tar.gz
         tar xzf cmake.tar.gz
@@ -227,10 +245,11 @@ function get_cmake_exe() {
         make -j8 1>&2
         make install 1&>2
         popd
+        debug "CMake build finished"
         _found="${CMAKE_INSTALL_DIR}/bin/cmake"
-        log "-- DONE MAKING CMAKE --"
     fi
 
+    debug "Using CMake: [${_found}]"
     echo "${_found}"
 }
 
@@ -250,6 +269,6 @@ function cmake_build_py() {
     else
         fail "No 'python' is available to run the cmake_build_py script"
     fi
-    log "Running CMake configure/build/install process: ${@}"
+    debug "Running CMake configure/build/install process with args: ${@}"
     "${_py}" -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" "${@}"
 }
