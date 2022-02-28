@@ -231,17 +231,17 @@ function get_cmake_exe() {
     elif [ "${OS_NAME}" = "windows" ] && have_command cmake; then
         _found=cmake
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
-        local _expect="$(pwd)/cmake-${_version}/bin/cmake"
+        local _expect="${BUILD_ROOT}/cmake-${_version}/bin/cmake"
         if ! test -f "${_expect}"; then
             debug "Downloading CMake binaries for Linux"
             curl --retry 5 "https://cmake.org/files/v3.11/cmake-${_version}-Linux-x86_64.tar.gz" -sS --max-time 120 --fail --output cmake.tar.gz
-            mkdir cmake-${_version}
-            tar xzf cmake.tar.gz -C cmake-${_version} --strip-components=1
+            mkdir "${BUILD_ROOT}/cmake-${_version}"
+            tar xzf cmake.tar.gz -C "${BUILD_ROOT}/cmake-${_version}" --strip-components=1
         fi
         _found="${_expect}"
     elif [ -z "${CMAKE:-}" -o -z "$( ${CMAKE:-} --version 2>/dev/null )" ]; then
         # Some images have no cmake yet, or a broken cmake (see: BUILD-8570)
-        CMAKE_INSTALL_DIR="$(abspath cmake-install)"
+        CMAKE_INSTALL_DIR="${INSTALL_ROOT}/cmake-install"
         local _expect="${CMAKE_INSTALL_DIR}/bin/cmake"
         if ! test -f "$_expect"; then
             debug "Building CMake from source..."
