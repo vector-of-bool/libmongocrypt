@@ -5,14 +5,12 @@ BUILD_DIR=$DEPS_PREFIX/tmp
 LIBMONGOCRYPT_DIR="$(pwd)/../../"
 TOP_DIR="$(pwd)/../../../"
 
-if [[ -z $CMAKE ]]; then
-  CMAKE=`which cmake`
-fi
-
 # create relevant folders
 mkdir -p $DEPS_PREFIX
 mkdir -p $BUILD_DIR
 mkdir -p $BUILD_DIR/libmongocrypt-build
+
+. "${LIBMONGOCRYPT_DIR}/.evergreen/init.sh"
 
 export BSON_INSTALL_PREFIX=$DEPS_PREFIX
 export MONGOCRYPT_INSTALL_PREFIX=$DEPS_PREFIX
@@ -29,9 +27,10 @@ pushd $TOP_DIR
 # NOTE: On OSX, -DCMAKE_OSX_DEPLOYMENT_TARGET can be set to an OSX version
 # to suppress build warnings. However, doing that tends to break some
 # of the versions that can be built
-export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.12\""
+export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=10.12"
 if [ "$OS" == "Windows_NT" ]; then
-  export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
+  # Older mongoc project does not respect MSVC_RUNTIME_LIBRARY. Set it with a flag:
+  export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_C_FLAGS_RELWITHDEBINFO=/MT"
 fi
 
 . ${TOP_DIR}/libmongocrypt/.evergreen/build_install_bson.sh
@@ -50,15 +49,24 @@ else
     LIBMONGOCRYPT_CFLAGS="-fPIC -Werror"
 fi
 
-CMAKE_FLAGS="-DDISABLE_NATIVE_CRYPTO=1 -DCMAKE_INSTALL_LIBDIR=lib"
+_cmake_flags=(-DDISABLE_NATIVE_CRYPTO=1 -DCMAKE_INSTALL_LIBDIR=lib)
 if [ "$OS" == "Windows_NT" ]; then
-  WINDOWS_CMAKE_FLAGS="-Thost=x64 -A x64 -DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
-  $CMAKE $CMAKE_FLAGS $WINDOWS_CMAKE_FLAGS -DCMAKE_C_FLAGS="${LIBMONGOCRYPT_CFLAGS}" -DCMAKE_PREFIX_PATH="`cygpath -w $DEPS_PREFIX`" -DCMAKE_INSTALL_PREFIX="`cygpath -w $DEPS_PREFIX`" "`cygpath -w $LIBMONGOCRYPT_DIR`"
-else
-  $CMAKE $CMAKE_FLAGS -DCMAKE_C_FLAGS="${LIBMONGOCRYPT_CFLAGS}" -DCMAKE_PREFIX_PATH=$DEPS_PREFIX -DCMAKE_INSTALL_PREFIX=$DEPS_PREFIX -DCMAKE_OSX_DEPLOYMENT_TARGET="10.12" $LIBMONGOCRYPT_DIR
+  # Set a platform+toolset
+  _cmake_flags+=(-Thost=x64 -A x64)
+  # Enable the static CRT
+  LIBMONGOCRYPT_CFLAGS="${LIBMONGOCRYPT_CFLAGS} /MT"
 fi
 
-$CMAKE --build . --target install --config RelWithDebInfo
+cmake_build_py \
+  --source-dir "${LIBMONGOCRYPT_DIR}" \
+  --build-dir "$(pwd)" \
+  --config RelWithDebInfo \
+  "${_cmake_flags[@]}" \
+  -D CMAKE_C_FLAGS="${LIBMONGOCRYPT_CFLAGS}" \
+  -D CMAKE_PREFIX_PATH="${DEPS_PREFIX}" \
+  -D CMAKE_OSX_DEPLOYMENT_TARGET="10.12" \
+  --install-prefix="${DEPS_PREFIX}" \
+  --install
 
 popd #./deps/tmp
 
