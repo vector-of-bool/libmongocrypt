@@ -262,7 +262,9 @@ tasks:
   - command: "shell.exec"
     params:
       script: |-
-        ${compile_env|} ./libmongocrypt/.evergreen/prep_c_driver_source.sh
+        env PREP_C_DRIVER_SOURCE_DIR=$(pwd)/mongo-c-driver \
+            ${compile_env|} \
+            ./libmongocrypt/.evergreen/prep_c_driver_source.sh
   - command: archive.targz_pack
     params:
       target: mongo-c-driver-src.tar.gz

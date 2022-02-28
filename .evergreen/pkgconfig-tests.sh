@@ -35,7 +35,7 @@ if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
 fi
 
 # Build and install a libbson to use for the tests
-$CI_DIR/prep_c_driver_source.sh
+. $CI_DIR/prep_c_driver_source.sh
 cmake_build_py \
     --source-dir "${MONGO_C_DRIVER_DIR}" \
     --build-dir "${MONGO_C_DRIVER_BUILD_DIR}" \

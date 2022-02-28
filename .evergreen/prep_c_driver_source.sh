@@ -4,7 +4,7 @@ set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 # Change the path to the driver dir to a scratch-space clone
-MONGO_C_DRIVER_DIR="${BUILD_ROOT}/mcd-clone"
+MONGO_C_DRIVER_DIR="${PREP_C_DRIVER_SOURCE_DIR:-${BUILD_ROOT}/mcd-clone}"
 
 # Clone mongo-c-driver and check out to a tagged version.
 MONGO_C_DRIVER_VERSION=1.17.0
