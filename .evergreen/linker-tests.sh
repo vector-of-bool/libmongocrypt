@@ -1,117 +1,103 @@
 #!/bin/bash
-set -o xtrace
-set -o errexit
 
-system_path () {
-    if [ "$OS" == "Windows_NT" ]; then
-        cygpath -a "$1" -w
-    else
-        echo $1
-    fi
-}
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-# Directory layout
-# .evergreen
-# -linker_tests_deps
-# --app
-# --bson_patches
-#
-# linker_tests (created by this script)
-# -libmongocrypt-cmake-build (for artifacts built from libmongocrypt source)
-# -app-cmake-build
-# -mongo-c-driver
-# --cmake-build
-# -install
-# --bson1
-# --bson2
-# --libmongocrypt
-#
+# This script tests that a program can successfully link to a dynamic
+# libmongocrypt that was statically linked with libbson, while that program
+# also statically links to a *different* set of libbson code, and the resulting
+# symbols do not conflict.
 
-if [ ! -e ./.evergreen ]; then
-    echo "Error: run from libmongocrypt root"
-    exit 1;
+have_command git || fail "linker-tests.sh requires a Git executable on the PATH"
+
+# A scratch directory where we will do our work:
+_scratch_dir="${BUILD_ROOT}/linker_tests"
+# Patches and the test app:
+_linker_tests_deps_dir="${CI_DIR}/linker_tests_deps"
+
+# Directory where we will put a temporary copy of mongo-c-driver to patch over it for testing
+_mcd_clone_dir="${_scratch_dir}/mongo-c-driver"
+
+# Destination of temporary builds and installs
+_build_prefix="${_scratch_dir}/build"
+_install_prefix="${_scratch_dir}/install"
+
+# Tell mongo-c-driver what version it is via the BUILD_VERSION setting
+_mcd_version="1.17.0"
+
+# Create a clean scratch directory
+rm -rf "${_scratch_dir}"
+mkdir -p "${_scratch_dir}"
+
+# Clone the MONGO_C_DRIVER that we have been using for CI
+git clone --quiet "file://${MONGO_C_DRIVER_DIR}" --depth=1 "${_mcd_clone_dir}"
+
+# Setup common build options, passed to cmake_build_py
+_build_flags=(--config="${DEFAULT_CMAKE_BUILD_TYPE}")
+if [ "${OS_NAME}" = "Windows_NT" ]; then
+    _build_flags+=(-T host=x64 -A x64)
 fi
 
-libmongocrypt_root=$(pwd)
-linker_tests_root=${libmongocrypt_root}/linker_tests
-linker_tests_deps_root=${libmongocrypt_root}/.evergreen/linker_tests_deps
-
-rm -rf linker_tests
-mkdir -p linker_tests/{install,libmongocrypt-cmake-build,app-cmake-build}
-cd linker_tests
-
-# Make libbson1 and libbson2
-$libmongocrypt_root/.evergreen/prep_c_driver_source.sh
-cd mongo-c-driver
-
-# Use C driver helper script to find cmake binary, stored in $CMAKE.
-if [ "$OS" == "Windows_NT" ]; then
-    CMAKE=/cygdrive/c/cmake/bin/cmake
-    ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
-else
-    chmod u+x ./.evergreen/find-cmake.sh
-    # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-    IGNORE_SYSTEM_CMAKE=1 . ./.evergreen/find-cmake.sh
-    # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
-    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
-    MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-    if [ "darwin" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
-        CMAKE=cmake
-    fi
+if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
+    _build_flags+=(-D "CMAKE_OSX_ARCHITECTURES=arm64;x86_64")
 fi
 
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
-    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
-fi
+# Make libbson1
+_bson1_install_dir="$_install_prefix/bson1"
+git -C "${_mcd_clone_dir}" apply \
+    --ignore-whitespace \
+    "$_linker_tests_deps_dir/bson_patches/libbson1.patch"
+cmake_build_py \
+    -D ENABLE_MONGOC=OFF \
+    -D BUILD_VERSION="${_mcd_version}" \
+    "${_build_flags[@]}" \
+    --install-prefix="${_bson1_install_dir}" \
+    --source-dir="${_mcd_clone_dir}" \
+    --build-dir="${_build_prefix}/bson1" \
+    --install
 
-git apply --ignore-whitespace "$(system_path $linker_tests_deps_root/bson_patches/libbson1.patch)"
-mkdir cmake-build
-cd cmake-build
-INSTALL_PATH="$(system_path $linker_tests_root/install/bson1)"
-SRC_PATH="$(system_path ../)"
-$CMAKE -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
 # Make libbson2
-cd ..
-git reset --hard
-git apply --ignore-whitespace "$(system_path $linker_tests_deps_root/bson_patches/libbson2.patch)"
-cd cmake-build
-INSTALL_PATH="$(system_path $linker_tests_root/install/bson2)"
-SRC_PATH="$(system_path ../)"
-$CMAKE -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+# Reset the source and apply a different patch
+git -C "${_mcd_clone_dir}" checkout --force -- "${_mcd_clone_dir}"
+git -C "${_mcd_clone_dir}" apply \
+    --ignore-whitespace \
+    "$_linker_tests_deps_dir/bson_patches/libbson2.patch"
+# Build and install that into another directory:
+_bson2_install_dir="$_install_prefix/bson2"
+cmake_build_py \
+    -D ENABLE_MONGOC=OFF \
+    "${_build_flags[@]}" \
+    --install-prefix="${_bson2_install_dir}" \
+    --source-dir="${_mcd_clone_dir}" \
+    --build-dir="${_build_prefix}/bson2" \
+    --install
 
-# Build libmongocrypt, static linking against libbson2
-cd $linker_tests_root/libmongocrypt-cmake-build
-PREFIX_PATH="$(system_path $linker_tests_root/install/bson2)"
-INSTALL_PATH="$(system_path $linker_tests_root/install/libmongocrypt)"
-SRC_PATH="$(system_path $libmongocrypt_root)"
-$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+# Build dynamic libmongocrypt that static links against our libbson2
+_lmcr_install_dir="${_install_prefix}/libmongocrypt"
+cmake_build_py \
+    "${_build_flags[@]}" \
+    -D CMAKE_PREFIX_PATH="$_bson2_install_dir" \
+    -D MONGOCRYPT_MONGOC_DIR="${_mcd_clone_dir}" \
+    --install-prefix="${_lmcr_install_dir}" \
+    --source-dir="${LIBMONGOCRYPT_DIR}" \
+    --build-dir="${_build_prefix}/libmongocrypt" \
+    --install
 
-echo "Test case: Modelling libmongoc's use"
-# app links against libbson1.so
-# app links against libmongocrypt.so
-cd $linker_tests_root/app-cmake-build
-PREFIX_PATH="$(system_path $linker_tests_root/install/bson1);$(system_path $linker_tests_root/install/libmongocrypt)"
-SRC_PATH="$(system_path $linker_tests_deps_root/app)"
-$CMAKE -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" "$SRC_PATH"
-$CMAKE --build . --target app --config RelWithDebInfo
+# Now build an application that links both to dynamic libbson1 and the dynamic
+# libmongocrypt that was statically linked to libbson2
+_app_build_dir="${_build_prefix}/app"
+cmake_build_py \
+    "${_build_flags[@]}" \
+    -D CMAKE_PREFIX_PATH="$(native_path "$_bson1_install_dir");$(native_path "$_lmcr_install_dir")" \
+    --source-dir="${_linker_tests_deps_dir}/app" \
+    --build-dir="${_app_build_dir}"
 
-if [ "$OS" == "Windows_NT" ]; then
-    export PATH="$PATH:$linker_tests_root/install/bson1/bin:$linker_tests_root/install/libmongocrypt/bin"
-    APP_CMD="./RelWithDebInfo/app.exe"
-else
-    APP_CMD="./app"
+# Check that the built app gives the right output
+_app_output="$(command "${_app_build_dir}/${BUILD_DIR_INFIX}/app")"
+_expect_output=".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
+if [[ "${_app_output}" != "${_expect_output}" ]]; then
+    echo "Got '${_app_output}', expected '${_expect_output}'" 1>&2
+    exit 1
 fi
 
-check_output () {
-    output="$($APP_CMD)"
-    if [[ "$output" != *"$1"* ]]; then
-        echo "got '$output', expecting '$1'"
-        exit 1;
-    fi
-    echo "ok"
-}
-check_output ".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
-exit 0
+echo "linker-tests pass!"
