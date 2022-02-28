@@ -26,6 +26,6 @@ fi
 
 dotnet_tool=$(which dotnet)
 
-"$dotnet_tool" build -c Release libmongocrypt/cmake-build/bindings/cs/cs.sln
+"$dotnet_tool" build -c Release "${LIBMONGOCRYPT_BUILD_ROOT}/default/bindings/cs/cs.sln"
 
-"$dotnet_tool" test -c Release libmongocrypt/cmake-build/bindings/cs/MongoDB.Libmongocrypt.Test/MongoDB.Libmongocrypt.Test.csproj -- RunConfiguration.TargetPlatform=x64
+"$dotnet_tool" test -c Release "${LIBMONGOCRYPT_BUILD_ROOT}/default/bindings/cs/MongoDB.Libmongocrypt.Test/MongoDB.Libmongocrypt.Test.csproj" -- RunConfiguration.TargetPlatform=x64
