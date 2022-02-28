@@ -6,8 +6,8 @@
 # Supported/used environment variables:
 #   IS_PATCH    If "true", this is an Evergreen patch build.
 
-set -o xtrace
-set -o errexit
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
 on_exit () {
   if [ -e ./unstable-chroot/debootstrap/debootstrap.log ]; then
@@ -17,14 +17,20 @@ on_exit () {
 }
 trap on_exit EXIT
 
-if [ "${IS_PATCH}" = "true" ]; then
-  git diff HEAD -- . ':!debian' > ../upstream.patch
-  git diff HEAD -- debian > ../debian.patch
-  git clean -fdx
-  git reset --hard HEAD
-  if [ -s ../upstream.patch ]; then
+_scratch_dir="${BUILD_ROOT}/deb"
+export DEBOOTSTRAP_DIR="${_scratch_dir}/debootstrap.git"
+_chroot="${_scratch_dir}/unstable-chroot"
+
+if [ "${IS_PATCH:-}" = "true" ]; then
+  _clean_clone="${_scratch_dir}/clean-clone"
+  git clone "file://${LIBMONGOCRYPT_DIR}" "${_clean_clone}" --depth=1
+  git -C "${_clean_clone}" diff HEAD -- . ':!debian' > "${_scratch_dir}/upstream.patch"
+  git -C "${_clean_clone}" diff HEAD -- debian > "${_scratch_dir}/debian.patch"
+  git -C "${_clean_clone}" clean -fdx
+  git -C "${_clean_clone}" reset --hard HEAD
+  if [ -s "${_scratch_dir}/upstream.patch" ]; then
     [ -d debian/patches ] || mkdir debian/patches
-    mv ../upstream.patch debian/patches/
+    mv "${_scratch_dir}/upstream.patch" debian/patches/
     echo upstream.patch >> debian/patches/series
     git add debian/patches/*
     git commit -m 'Evergreen patch build - upstream changes'
@@ -37,13 +43,14 @@ if [ "${IS_PATCH}" = "true" ]; then
   fi
 fi
 
-cd ..
 
-git clone https://salsa.debian.org/installer-team/debootstrap.git debootstrap.git
-export DEBOOTSTRAP_DIR=`pwd`/debootstrap.git
-sudo -E ./debootstrap.git/debootstrap unstable ./unstable-chroot/ http://cdn-aws.deb.debian.org/debian
-cp -a libmongocrypt ./unstable-chroot/tmp/
-sudo chroot ./unstable-chroot /bin/bash -c "(set -o xtrace && \
+if ! test -d "${DEBOOTSTRAP_DIR}/.git"; then
+  git clone https://salsa.debian.org/installer-team/debootstrap.git "${DEBOOTSTRAP_DIR}"
+fi
+git -C "${DEBOOTSTRAP_DIR}" pull
+sudo -E "$DEBOOTSTRAP_DIR/debootstrap" unstable "${_chroot}/" http://cdn-aws.deb.debian.org/debian
+cp -a "${LIBMONGOCRYPT_DIR}" "${_chroot}/tmp/"
+sudo chroot "${_chroot}" /bin/bash -c "(set -o xtrace && \
   apt-get install -y build-essential git-buildpackage fakeroot debhelper cmake curl ca-certificates libssl-dev pkg-config libbson-dev && \
   cd /tmp/libmongocrypt && \
   git clean -fdx && \
@@ -56,6 +63,6 @@ sudo chroot ./unstable-chroot /bin/bash -c "(set -o xtrace && \
   dpkg -i ../*.deb && \
   /usr/bin/gcc -I/usr/include/mongocrypt -I/usr/include/libbson-1.0 -o example-state-machine test/example-state-machine.c -lmongocrypt -lbson-1.0 )"
 
-[ -e ./unstable-chroot/tmp/libmongocrypt/example-state-machine ] || (echo "Example 'example-state-machine' was not built!" ; exit 1)
-(cd ./unstable-chroot/tmp/ ; tar zcvf ../../deb.tar.gz *.dsc *.orig.tar.gz *.debian.tar.xz *.build *.deb)
+[ -e "${_chroot}/tmp/libmongocrypt/example-state-machine" ] || (echo "Example 'example-state-machine' was not built!" ; exit 1)
+(cd "${_chroot}/tmp/" ; tar zcvf ../../deb.tar.gz *.dsc *.orig.tar.gz *.debian.tar.xz *.build *.deb)
 
