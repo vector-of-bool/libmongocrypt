@@ -1,49 +1,35 @@
 #!/bin/bash
 
-set -o xtrace
-set -o errexit
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-evergreen_root="$(pwd)"
-pushd $evergreen_root
+_build_flags=(
+    -D ENABLE_MONGOC=OFF
+    -D ENABLE_EXTRA_ALIGNMENT=OFF
+)
 
-. ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
+if [ "${OS:-}" = "Windows_NT" ]; then
+    _build_flags+=(-T host=x64 -A x64)
+fi
+
+if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
+    _build_flags+=(-D CMAKE_OSX_ARCHITECTURES="amd64;x86_64")
+fi
+
+if ! test -d "${MONGO_C_DRIVER_DIR}"; then
+    fail "No mongo-c-driver directory available (Expected [${MONGO_C_DRIVER_DIR}])"
+fi
+
+if test -n "${BSON_EXTRA_CMAKE_FLAGS:-}"; then
+    _build_flags+=(${BSON_EXTRA_CMAKE_FLAGS})
+fi
 
 # Build and install libbson.
-pushd mongo-c-driver
-
-# Use C driver helper script to find cmake binary, stored in $CMAKE.
-if [ "$OS" == "Windows_NT" ]; then
-    CMAKE=/cygdrive/c/cmake/bin/cmake
-    ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
-else
-    chmod u+x ./.evergreen/find-cmake.sh
-    # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-    IGNORE_SYSTEM_CMAKE=1 . ./.evergreen/find-cmake.sh
-    # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
-    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
-    MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-    if [ "darwin" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
-        CMAKE=cmake
-    fi
-fi
-
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
-    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
-fi
-
-$CMAKE --version
-
-# Remove remnants of any earlier build
-[ -d cmake-build ] && rm -rf cmake-build
-
-mkdir cmake-build
-pushd cmake-build
-$CMAKE -DENABLE_MONGOC=OFF ${ADDITIONAL_CMAKE_FLAGS} ${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_EXTRA_ALIGNMENT=OFF -DCMAKE_C_FLAGS="${BSON_EXTRA_CFLAGS}" -DCMAKE_INSTALL_PREFIX="${BSON_INSTALL_PREFIX}" ../
-echo "Installing libbson"
-# TODO - Upgrade to cmake 3.12 and use "-j" to increase parallelism
-$CMAKE --build . --target install --config RelWithDebInfo
-
-popd
-popd
-popd
-
+cmake_build_py \
+    --config="${DEFAULT_CMAKE_BUILD_TYPE}" \
+    --install-prefix="${BSON_INSTALL_DIR}" \
+    --source-dir="${MONGO_C_DRIVER_DIR}" \
+    --build-dir="${MONGO_C_DRIVER_BUILD_DIR}" \
+    "${_build_flags[@]}" \
+    --install \
+    --wipe
