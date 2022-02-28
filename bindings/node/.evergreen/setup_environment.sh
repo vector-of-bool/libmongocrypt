@@ -28,7 +28,7 @@ mkdir -p ${NVM_DIR}
 
 # install Node.js
 echo "Installing Node ${NODE_LTS_NAME:-}"
-if [ "$OS" == "Windows_NT" ]; then
+if [ "${OS_NAME}" == "windows" ]; then
   set +o xtrace
 
   export NVM_HOME=`cygpath -w "$NVM_DIR"`
