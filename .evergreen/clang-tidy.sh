@@ -3,21 +3,12 @@
 # static analyzer.
 #
 
-set -o xtrace
-set -o errexit
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-echo "Begin compile process"
+: "${CLANG_TIDY_EXECUTABLE:=/opt/mongodbtoolchain/v3/bin/clang-tidy}"
 
-evergreen_root="$(pwd)"
+have_command "${CLANG_TIDY_EXECUTABLE}" || fail "No clang-tidy executable"
 
-. ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
-
-cd $evergreen_root
-
-CLANG_TIDY=/opt/mongodbtoolchain/v3/bin/clang-tidy
-
-$CLANG_TIDY --version
-
-cd libmongocrypt
-
-python ./etc/list-compile-files.py ./cmake-build/ | xargs $CLANG_TIDY -p ./cmake-build
+python "${LIBMONGOCRYPT_DIR}/etc/list-compile-files.py" "${LIBMONGOCRYPT_BUILD_ROOT}/default/" \
+    | xargs "$CLANG_TIDY_EXECUTABLE" -p "${LIBMONGOCRYPT_BUILD_ROOT}/default/"

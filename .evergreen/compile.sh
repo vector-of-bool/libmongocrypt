@@ -10,14 +10,8 @@
 # NOTE: This script is not meant to be invoked for Evergreen builds.  It is a
 # convenience script for users of libmongocrypt
 
-set -o xtrace
-set -o errexit
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-save_pwd="$(pwd)"
-
-. ./libmongocrypt/.evergreen/setup-env.sh
-. ./libmongocrypt/.evergreen/prep_c_driver_source.sh
-. ./libmongocrypt/.evergreen/build_all.sh
-
-cd ${save_pwd}
-
+. "${CI_DIR}/prep_c_driver_source.sh"
+bash "${CI_DIR}/build_all.sh"
