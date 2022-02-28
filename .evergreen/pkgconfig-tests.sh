@@ -11,6 +11,8 @@ if ! have_command pkg-config; then
     exit 0
 fi
 
+. "${CI_DIR}/prep_c_driver_source.sh"
+
 pkgconfig_tests_root=${LIBMONGOCRYPT_DIR}/pkgconfig_tests
 
 rm -rf "${pkgconfig_tests_root}"

@@ -3,6 +3,8 @@
 set -e
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
+. "${CI_DIR}/prep_c_driver_source.sh"
+
 _build_flags=(
     -D ENABLE_MONGOC=OFF
     -D ENABLE_EXTRA_ALIGNMENT=OFF

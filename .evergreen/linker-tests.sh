@@ -10,6 +10,8 @@ set -e
 
 have_command git || fail "linker-tests.sh requires a Git executable on the PATH"
 
+. "${CI_DIR}/prep_c_driver_source.sh"
+
 # A scratch directory where we will do our work:
 _scratch_dir="${BUILD_ROOT}/linker_tests"
 # Patches and the test app:
