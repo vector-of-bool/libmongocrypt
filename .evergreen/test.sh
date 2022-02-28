@@ -9,36 +9,43 @@
 # Set the VALGRIND environment variable to "valgrind <opts>" to run through valgrind.
 #
 
-set -o errexit
-set -o xtrace
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-evergreen_root="$(pwd)"
-
-. ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
-
-BIN_DIR=./cmake-build
-KMS_BIN_DIR=./cmake-build/kms-message
-NOCRYPTO_BIN_DIR=./cmake-build-nocrypto
-if [ "Windows_NT" == "$OS" ]; then
-    BIN_DIR=./cmake-build/RelWithDebInfo
-    KMS_BIN_DIR=./cmake-build/kms-message/RelWithDebInfo
-    NOCRYPTO_BIN_DIR=./cmake-build-nocrypto/RelWithDebInfo
+if [ "${OS_NAME}" = "windows" ]; then
     # Make sure libbson dll is in the path
     export PATH=${BSON_INSTALL_PREFIX}/bin:$PATH
 fi
 
-echo "Running kms-message tests."
-cd libmongocrypt/kms-message
-$VALGRIND ../${KMS_BIN_DIR}/test_kms_request
-cd ../..
+function run_test() {
+    local _name="$1"
+    shift
+    if test -n "${VALGRIND:-}"; then
+        log "Running test under valgrind: ${_name}"
+        ${VALGRIND} "${@}"
+    else
+        log "Running test: ${_name}"
+        command "${@}"
+    fi
+}
 
-echo "Running libmongocrypt tests."
-cd libmongocrypt
-MONGOCRYPT_TRACE=ON $VALGRIND ${BIN_DIR}/test-mongocrypt
-echo "Running example state machine."
-$VALGRIND ${BIN_DIR}/example-state-machine
-echo "Running example state machine (statically linked)."
-$VALGRIND ${BIN_DIR}/example-state-machine-static
-echo "Running libmongocrypt tests with no native crypto"
-MONGOCRYPT_TRACE=ON $VALGRIND ${NOCRYPTO_BIN_DIR}/test-mongocrypt
-cd ..
+pushd "${LIBMONGOCRYPT_DIR}/kms-message"
+run_test "kms-message" \
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/kms-message/${BUILD_DIR_INFIX}/test_kms_request"
+popd
+
+pushd "${LIBMONGOCRYPT_DIR}"
+run_test "libmongocrypt main" \
+    env MONGOCRYPT_TRACE=ON \
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/test-mongocrypt"
+
+run_test "Example state machine" \
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/example-state-machine"
+
+run_test "Example state machine (statically linked)" \
+    "${LIBMONGOCRYPT_BUILD_ROOT}/default/${BUILD_DIR_INFIX}/example-state-machine-static"
+
+run_test "libmongocrypt with no native crypto" \
+    env MONGOCRYPT_TRACE=ON  \
+    "${LIBMONGOCRYPT_BUILD_ROOT}/nocrypto/${BUILD_DIR_INFIX}/test-mongocrypt"
+popd
