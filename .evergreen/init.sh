@@ -103,7 +103,7 @@ function abspath() {
     set -eu
     local ret
     local arg="$1"
-    debug "Resolve path [$1]"
+    debug "Resolve path [$arg]"
     # The parent path:
     local _parent="$(dirname "$arg")"
     # The filename part:
@@ -146,6 +146,7 @@ function os_name() {
     test "$#" -eq 0 || fail "os_name accepts no arguments"
     have_command uname || fail "No 'uname' executable found"
 
+    debug "Uname is [$(uname -a)]"
     local _uname="$(uname | tr '[:upper:]' '[:lower:]')"
     local _os_name="unknown"
 
@@ -207,6 +208,7 @@ function get_cmake_exe() {
     set -eu
 
     local _found
+    local _version="3.11.0"
 
     # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
     local _march=$(uname -m | tr '[:upper:]' '[:lower:]')
@@ -229,24 +231,30 @@ function get_cmake_exe() {
     elif [ -z "${IGNORE_SYSTEM_CMAKE:-}" ] && have_command cmake; then
         _found=cmake
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
-        debug "Downloading CMake binaries for Linux"
-        curl --retry 5 https://cmake.org/files/v3.11/cmake-3.11.0-Linux-x86_64.tar.gz -sS --max-time 120 --fail --output cmake.tar.gz
-        mkdir cmake-3.11.0
-        tar xzf cmake.tar.gz -C cmake-3.11.0 --strip-components=1
-        _found=$(pwd)/cmake-3.11.0/bin/cmake
+        local _expect="$(pwd)/cmake-${_version}/bin/cmake"
+        if ! test -f "${_expect}"; then
+            debug "Downloading CMake binaries for Linux"
+            curl --retry 5 "https://cmake.org/files/v3.11/cmake-${_version}-Linux-x86_64.tar.gz" -sS --max-time 120 --fail --output cmake.tar.gz
+            mkdir cmake-${_version}
+            tar xzf cmake.tar.gz -C cmake-${_version} --strip-components=1
+        fi
+        _found="${_expect}"
     elif [ -z "${CMAKE:-}" -o -z "$( ${CMAKE:-} --version 2>/dev/null )" ]; then
         # Some images have no cmake yet, or a broken cmake (see: BUILD-8570)
-        debug "Building CMake from source..."
-        CMAKE_INSTALL_DIR=$(readlink -f cmake-install)
-        curl --retry 5 https://cmake.org/files/v3.11/cmake-3.11.0.tar.gz -sS --max-time 120 --fail --output cmake.tar.gz
-        tar xzf cmake.tar.gz
-        pushd cmake-3.11.0
-        ./bootstrap --prefix="${CMAKE_INSTALL_DIR}" 1>&2
-        make -j8 1>&2
-        make install 1&>2
-        popd
-        debug "CMake build finished"
-        _found="${CMAKE_INSTALL_DIR}/bin/cmake"
+        CMAKE_INSTALL_DIR="$(abspath cmake-install)"
+        local _expect="${CMAKE_INSTALL_DIR}/bin/cmake"
+        if ! test -f "$_expect"; then
+            debug "Building CMake from source..."
+            curl --retry 5 "https://cmake.org/files/v3.11/cmake-${_version}.tar.gz" -sS --max-time 120 --fail --output cmake.tar.gz
+            tar xzf cmake.tar.gz
+            pushd cmake-${_version}
+            ./bootstrap --prefix="${CMAKE_INSTALL_DIR}" 1>&2
+            make -j8 1>&2
+            make install 1&>2
+            popd
+            debug "CMake build finished"
+        fi
+        _found="${_expect}"
     fi
 
     debug "Using CMake: [${_found}]"

@@ -29,4 +29,5 @@ echo $MONGO_C_DRIVER_VERSION > "${MONGO_C_DRIVER_DIR}/VERSION_CURRENT"
 log "mongo-c-driver fetched into [${MONGO_C_DRIVER_DIR}]"
 
 # Override the project's find-cmake to use the same one that we are using
-echo "CMAKE=\"$(get_cmake_exe)\"" > "${MONGO_C_DRIVER_DIR}/.evergreen/find-cmake.sh"
+_cmake="$(get_cmake_exe)"
+echo "CMAKE=\"$_cmake\"" > "${MONGO_C_DRIVER_DIR}/.evergreen/find-cmake.sh"
