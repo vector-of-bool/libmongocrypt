@@ -269,7 +269,7 @@ tasks:
     params:
       target: mongo-c-driver-src.tar.gz
       source_dir: mongo-c-driver
-      include: [./**]
+      include: [./**, ./.git/**]
   - command: s3.put
     params:
       aws_key: '${aws_key}'
