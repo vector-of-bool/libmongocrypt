@@ -72,21 +72,16 @@ functions:
   "create packages and repos":
     - command: "shell.exec"
       params:
+        shell: bash
         script: |-
           set -o xtrace
           set -o errexit
 
           # Find cmake.
-          if [ "$OS" == "Windows_NT" ]; then
-             CMAKE=/cygdrive/c/cmake/bin/cmake
-          else
-             chmod u+x ./mongo-c-driver/.evergreen/find-cmake.sh
-             # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-             IGNORE_SYSTEM_CMAKE=1 . ./mongo-c-driver/.evergreen/find-cmake.sh
-          fi
+          . "./libmongocrypt/.evergreen/init.sh"
           # Get current version of libmongocrypt.
           cd libmongocrypt
-          mongocrypt_version="$($CMAKE -P ./cmake/GetVersion.cmake 2>&1)"
+          mongocrypt_version="$("$(get_cmake_exe)" -P ./cmake/GetVersion.cmake 2>&1)"
           cd ..
 
           if [ "${has_packages|}" != "true" ] ; then
@@ -562,6 +557,7 @@ tasks:
     - command: shell.exec
       params:
         working_dir: libmongocrypt
+        shell: bash
         script: |-
           [ -f ~/.notary_env.sh ] && . ~/.notary_env.sh
           set -o xtrace
@@ -569,15 +565,9 @@ tasks:
           set -o verbose
 
           # Find cmake.
-          if [ "$OS" == "Windows_NT" ]; then
-            CMAKE=/cygdrive/c/cmake/bin/cmake
-          else
-            chmod u+x ../mongo-c-driver/.evergreen/find-cmake.sh
-            # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-            IGNORE_SYSTEM_CMAKE=1 . ../mongo-c-driver/.evergreen/find-cmake.sh
-          fi
+          . "./libmongocrypt/.evergreen/init.sh"
           # Get the current version of libmongocrypt.
-          mongocrypt_version="$($CMAKE -P ./cmake/GetVersion.cmake 2>&1)"
+          mongocrypt_version="$("$(get_cmake_exe)" -P ./cmake/GetVersion.cmake 2>&1)"
 
           if [ "${is_patch}" = "true" ]; then
             echo "patch build, skipping packaging publication"
@@ -616,7 +606,7 @@ tasks:
           set -o errexit
 
           CMAKE=/cygdrive/c/cmake/bin/cmake
-          mongocrypt_version="$($CMAKE -P ./cmake/GetVersion.cmake 2>&1)"
+          mongocrypt_version="$("$(get_cmake_exe)" -P ./cmake/GetVersion.cmake 2>&1)"
           case "$mongocrypt_version" in
             *+*)
               # Not a tagged release.
