@@ -62,6 +62,8 @@ functions:
         script: |-
           set -o errexit
           set -o xtrace
+          export DEBUG=1
+          export TRACE=1
           ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
           ${test_env|} ./libmongocrypt/.evergreen/test.sh
           cd libmongocrypt
