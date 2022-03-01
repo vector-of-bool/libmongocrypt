@@ -109,10 +109,10 @@ functions:
           PPA_BUILD_ONLY=1 ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
           pkg_version=$mongocrypt_version
           tar -zcv -C "$LIBMONGOCRYPT_INSTALL_ROOT" \
-              --transform="s|^libmongocrypt/|libmongocrypt-$pkg_version/|" \
+              --transform="s|^./|libmongocrypt-$pkg_version/|" \
               --exclude=nocrypto \
               --exclude=sharedbson \
-              -f libmongocrypt-$pkg_version.tar.gz libmongocrypt
+              -f libmongocrypt-$pkg_version.tar.gz .
           cd libmongocrypt/etc/
           # The files from libmongocrypt/debian/ are the official maintainer scripts,
           # but libmongocrypt/etc/debian/ contains a few custom scripts that are
