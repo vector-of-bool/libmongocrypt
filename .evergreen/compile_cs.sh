@@ -1,3 +1,4 @@
+#!/bin/bash
 # Compiles libmongocrypt dependencies and targets.
 #
 # Set extra cflags for libmongocrypt variables by setting LIBMONGOCRYPT_EXTRA_CFLAGS.
