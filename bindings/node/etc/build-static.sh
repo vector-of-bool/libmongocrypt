@@ -1,78 +1,69 @@
 #!/usr/bin/env bash -x
 
-DEPS_PREFIX="$(pwd)/deps"
+set -e
+
+_node_etc_dir="$(dirname "${BASH_SOURCE[0]}")"
+. "${_node_etc_dir}/../../../.evergreen/init.sh"
+_node_dir="$(abspath "$_node_etc_dir/..")"
+
+DEPS_PREFIX="$_node_dir/deps"
 BUILD_DIR=$DEPS_PREFIX/tmp
-LIBMONGOCRYPT_DIR="$(pwd)/../../"
-TOP_DIR="$(pwd)/../../../"
-# Install libbson in our deps prefix for use by libmongocrypt
-BSON_INSTALL_DIR=$DEPS_PREFIX
 
-# create relevant folders
-mkdir -p $DEPS_PREFIX
-mkdir -p $BUILD_DIR
-mkdir -p $BUILD_DIR/libmongocrypt-build
+_common_cmake_flags=(
+  -D CMAKE_PREFIX_PATH="${DEPS_PREFIX}"
+  # NOTE: we are setting -DCMAKE_INSTALL_LIBDIR=lib to ensure that the built
+  # files are always installed to lib instead of alternate directories like
+  # lib64.
+  -D CMAKE_INSTALL_LIBDIR=lib
+  # NOTE: On OSX, -DCMAKE_OSX_DEPLOYMENT_TARGET can be set to an OSX version
+  # to suppress build warnings. However, doing that tends to break some
+  # of the versions that can be built
+  -D CMAKE_OSX_DEPLOYMENT_TARGET=10.12
+)
 
-. "${LIBMONGOCRYPT_DIR}/.evergreen/init.sh"
+_bson_cmake_flags=("${_common_cmake_flags[@]}")
 
-pushd $DEPS_PREFIX #./deps
-pushd $BUILD_DIR #./deps/tmp
-
-pushd $TOP_DIR
-# build and install bson
-
-# NOTE: we are setting -DCMAKE_INSTALL_LIBDIR=lib to ensure that the built
-# files are always installed to lib instead of alternate directories like
-# lib64.
-# NOTE: On OSX, -DCMAKE_OSX_DEPLOYMENT_TARGET can be set to an OSX version
-# to suppress build warnings. However, doing that tends to break some
-# of the versions that can be built
-export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=10.12"
 if [ "${OS_NAME}" = "windows" ]; then
-  # Older mongoc project does not respect MSVC_RUNTIME_LIBRARY. Set it with a flag:
-  export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_C_FLAGS_RELWITHDEBINFO=/MT"
+  # Link libbson with the static CRT
+  _bson_cmake_flags+=(-D CMAKE_C_FLAGS="-MT")
 fi
 
-. ${TOP_DIR}/libmongocrypt/.evergreen/build_install_bson.sh
-
-popd #./deps/tmp
+# build and install bson in our deps prefix for use by libmongocrypt
+env BSON_INSTALL_DIR=$DEPS_PREFIX \
+  bash "${CI_DIR}/build_install_bson.sh" \
+    "${_bson_cmake_flags[@]}"
 
 # build and install libmongocrypt
-pushd libmongocrypt-build #./deps/tmp/libmongocrypt-build
+_lmcr_cmake_flags=(
+  "${_common_cmake_flags[@]}"
+  -D DISABLE_NATIVE_CRYPTO=1
+)
 
 if [ "${OS_NAME}" = "windows" ]; then
-    # W4996 - POSIX name for this item is deprecated
-    # TODO: add support for clang-cl which is detected as MSVC
-    LIBMONGOCRYPT_CFLAGS="/WX"
+  # Set a toolset+platform for libmongocrypt
+  _lmcr_cmake_flags+=(-Thost=x64 -A x64)
+  # W4996 - POSIX name for this item is deprecated
+  # TODO: add support for clang-cl which is detected as MSVC
+  # Enable warnings-as-errors and link with the static CRT
+  _compile_flags="-WX -MT"
 else
-    # GNU, Clang, AppleClang
-    LIBMONGOCRYPT_CFLAGS="-fPIC -Werror"
+  # GNU, Clang, AppleClang, enable position-independent-code
+  _compile_flags="-fPIC -Werror"
 fi
 
-_cmake_flags=(-DDISABLE_NATIVE_CRYPTO=1 -DCMAKE_INSTALL_LIBDIR=lib)
-if [ "${OS_NAME}" = "windows" ]; then
-  # Set a platform+toolset
-  _cmake_flags+=(-Thost=x64 -A x64)
-  # Enable the static CRT
-  LIBMONGOCRYPT_CFLAGS="${LIBMONGOCRYPT_CFLAGS} /MT"
-fi
+_lmcr_cmake_flags+=(-D CMAKE_C_FLAGS="${_compile_flags}")
 
 cmake_build_py \
   --source-dir "${LIBMONGOCRYPT_DIR}" \
-  --build-dir "$(pwd)" \
+  --build-dir "${DEPS_PREFIX}/tmp/libmongocrypt-build" \
   --config RelWithDebInfo \
-  "${_cmake_flags[@]}" \
-  -D CMAKE_C_FLAGS="${LIBMONGOCRYPT_CFLAGS}" \
-  -D CMAKE_PREFIX_PATH="${DEPS_PREFIX}" \
-  -D CMAKE_OSX_DEPLOYMENT_TARGET="10.12" \
+  "${_lmcr_cmake_flags[@]}" \
   --install-prefix="${DEPS_PREFIX}" \
   --install
-
-popd #./deps/tmp
-
-popd #./deps
-popd #./
 
 # build the `mongodb-client-encryption` addon
 # note the --unsafe-perm parameter to make the build work
 # when running as root. See https://github.com/npm/npm/issues/3497
-BUILD_TYPE=static npm install --unsafe-perm --build-from-source
+run_chdir "$_node_dir" \
+  env BUILD_TYPE=static \
+  npm install --unsafe-perm --build-from-source

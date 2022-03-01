@@ -51,6 +51,9 @@
 #       Return zero if <command> is the name of a command that can be executed,
 #       returns non-zero otherwise.
 #
+# * run_chdir <dirpath> <command> [args ...]
+#       Run the given command with a working directory given by <dirpath>
+#
 # * log <message>
 #       Print <message> to stderr
 #
@@ -96,6 +99,22 @@ function have_command() {
         return 0
     fi
     return 1
+}
+
+# Run a command in a different directory:
+# * run_chdir <dir> [command ...]
+function run_chdir() {
+    test "$#" -gt 2 || fail "run_chdir expects at least two arguments"
+    local _dir="$1"
+    shift
+    pushd "$_dir"
+    debug "Run in directory [$_dir]: $@"
+    set +e
+    command "$@"
+    local _rc=$?
+    set -e
+    popd
+    return $_rc
 }
 
 # Given a path string, convert it to an absolute path with no redundant components or directory separators
@@ -174,10 +193,10 @@ function native_path() {
     fi
 }
 
-_this_file="$(abspath "${BASH_SOURCE[0]}")"
-_this_dir="$(dirname "${_this_file}")"
+_init_sh_this_file="$(abspath "${BASH_SOURCE[0]}")"
+_init_sh_ci_dir="$(dirname "${_init_sh_this_file}")"
 
-CI_DIR="${_this_dir}"
+CI_DIR="${_init_sh_ci_dir}"
 LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
 
 BUILD_ROOT="${LIBMONGOCRYPT_DIR}/_build"

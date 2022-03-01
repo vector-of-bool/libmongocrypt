@@ -22,10 +22,6 @@ if ! test -d "${MONGO_C_DRIVER_DIR}"; then
     fail "No mongo-c-driver directory available (Expected [${MONGO_C_DRIVER_DIR}])"
 fi
 
-if test -n "${BSON_EXTRA_CMAKE_FLAGS:-}"; then
-    _build_flags+=(${BSON_EXTRA_CMAKE_FLAGS})
-fi
-
 # Build and install libbson.
 cmake_build_py \
     --config="${DEFAULT_CMAKE_BUILD_TYPE}" \
@@ -34,4 +30,5 @@ cmake_build_py \
     --build-dir="${MONGO_C_DRIVER_BUILD_DIR}" \
     "${_build_flags[@]}" \
     --install \
-    --wipe
+    --wipe \
+    "$@"
