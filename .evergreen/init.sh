@@ -230,6 +230,8 @@ function get_cmake_exe() {
         _found="/opt/cmake/bin/cmake"
     elif [ "${OS_NAME}" = "windows" ] && have_command cmake; then
         _found=cmake
+    elif [ -f "/cygdrive/c/cmake/bin/cmake" ]; then
+        _found="/cygdrive/c/cmake/bin/cmake"
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
         local _expect="${BUILD_ROOT}/cmake-${_version}/bin/cmake"
         if ! test -f "${_expect}"; then
