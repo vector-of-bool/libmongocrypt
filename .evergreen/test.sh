@@ -14,7 +14,7 @@ set -e
 
 if [ "${OS_NAME}" = "windows" ]; then
     # Make sure libbson dll is in the path
-    export PATH=${BSON_INSTALL_PREFIX}/bin:$PATH
+    export PATH=${BSON_INSTALL_DIR}/bin:$PATH
 fi
 
 function run_test() {
