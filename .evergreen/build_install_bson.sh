@@ -15,7 +15,7 @@ if [ "${OS:-}" = "Windows_NT" ]; then
 fi
 
 if [ "${MACOS_UNIVERSAL:-}" = "ON" ]; then
-    _build_flags+=(-D CMAKE_OSX_ARCHITECTURES="amd64;x86_64")
+    _build_flags+=(-D CMAKE_OSX_ARCHITECTURES="arm64;x86_64")
 fi
 
 if ! test -d "${MONGO_C_DRIVER_DIR}"; then
