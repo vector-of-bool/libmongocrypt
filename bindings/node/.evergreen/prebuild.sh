@@ -52,7 +52,7 @@ run_prebuild() {
 VERSION_AT_HEAD=$(get_version_at_git_rev "HEAD")
 VERSION_AT_HEAD_1=$(get_version_at_git_rev "HEAD~1")
 
-if [[ -n $NODE_FORCE_PUBLISH ]]; then
+if [[ -n ${NODE_FORCE_PUBLISH:-} ]]; then
   echo "\$NODE_FORCE_PUBLISH=${NODE_FORCE_PUBLISH} detected"
   echo "Beginning prebuild"
   run_prebuild

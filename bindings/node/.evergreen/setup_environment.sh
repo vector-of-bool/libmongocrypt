@@ -57,6 +57,7 @@ EOT
   set -o xtrace
 else
   set +o xtrace
+  set +o nounset
 
   echo "  Downloading nvm"
   curl -o- $NVM_URL | bash
@@ -67,6 +68,7 @@ else
   echo "Running: nvm use --lts"
   nvm use --lts
 
+  set -o nounset
   set -o xtrace
 fi
 

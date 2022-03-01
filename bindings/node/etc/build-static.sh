@@ -28,7 +28,7 @@ pushd $TOP_DIR
 # to suppress build warnings. However, doing that tends to break some
 # of the versions that can be built
 export BSON_EXTRA_CMAKE_FLAGS="-DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_OSX_DEPLOYMENT_TARGET=10.12"
-if [ "$OS" == "Windows_NT" ]; then
+if [ "${OS_NAME}" = "windows" ]; then
   # Older mongoc project does not respect MSVC_RUNTIME_LIBRARY. Set it with a flag:
   export BSON_EXTRA_CMAKE_FLAGS="${BSON_EXTRA_CMAKE_FLAGS} -DCMAKE_C_FLAGS_RELWITHDEBINFO=/MT"
 fi
@@ -40,7 +40,7 @@ popd #./deps/tmp
 # build and install libmongocrypt
 pushd libmongocrypt-build #./deps/tmp/libmongocrypt-build
 
-if [ "$OS" = "Windows_NT" ]; then
+if [ "${OS_NAME}" = "windows" ]; then
     # W4996 - POSIX name for this item is deprecated
     # TODO: add support for clang-cl which is detected as MSVC
     LIBMONGOCRYPT_CFLAGS="/WX"
@@ -50,7 +50,7 @@ else
 fi
 
 _cmake_flags=(-DDISABLE_NATIVE_CRYPTO=1 -DCMAKE_INSTALL_LIBDIR=lib)
-if [ "$OS" == "Windows_NT" ]; then
+if [ "${OS_NAME}" = "windows" ]; then
   # Set a platform+toolset
   _cmake_flags+=(-Thost=x64 -A x64)
   # Enable the static CRT

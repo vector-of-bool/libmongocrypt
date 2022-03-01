@@ -7,7 +7,7 @@ set -o errexit  # Exit the script with error if any of the commands fail
 
 export JAVA_HOME="/opt/java/jdk8"
 
-if [ "Windows_NT" = "$OS" ]; then
+if [ "${OS_NAME}" = "windows" ]; then
    export JAVA_HOME=/cygdrive/c/java/jdk8
 else
    export JAVA_HOME=/opt/java/jdk8

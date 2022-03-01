@@ -86,7 +86,7 @@ functions:
 
           # check if virtualenv is set up
           if [ -d "${workdir}/venv" ]; then
-            if [ "Windows_NT" = "$OS" ]; then
+            if [ "${OS_NAME}" = "windows" ]; then
               # Need to quote the path on Windows to preserve the separator.
               . "${workdir}/venv/Scripts/activate" 2> /tmp/activate_error.log
             else
@@ -100,10 +100,10 @@ functions:
             python=${python|/opt/mongodbtoolchain/v3/bin/python3}
           fi
 
-          if [ "Windows_NT" = "$OS" ]; then
-            export PYTHONPATH="$PYTHONPATH;$(cygpath -w ${workdir}/src)"
+          if [ "${OS_NAME}" = "windows" ]; then
+            export PYTHONPATH="${PYTHONPATH:-};$(cygpath -w ${workdir}/src)"
           else
-            export PYTHONPATH="$PYTHONPATH:${workdir}/src"
+            export PYTHONPATH="${PYTHONPATH:-}:${workdir}/src"
           fi
 
           PPA_BUILD_ONLY=1 ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
