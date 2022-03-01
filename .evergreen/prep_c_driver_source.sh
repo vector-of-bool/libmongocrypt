@@ -21,7 +21,7 @@ fi
 git -C "${MONGO_C_DRIVER_DIR}" fetch origin "${MONGO_C_DRIVER_VERSION}" --depth=1
 git -C "${MONGO_C_DRIVER_DIR}" checkout "${MONGO_C_DRIVER_VERSION}"
 
-echo $MONGO_C_DRIVER_VERSION > "${MONGO_C_DRIVER_DIR}/VERSION_CURRENT"
+echo $MONGO_C_DRIVER_VERSION > "$(native_path "${MONGO_C_DRIVER_DIR}/VERSION_CURRENT")"
 
 log "mongo-c-driver fetched into [${MONGO_C_DRIVER_DIR}]"
 
