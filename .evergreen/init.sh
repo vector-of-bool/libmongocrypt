@@ -247,11 +247,10 @@ function get_cmake_exe() {
             debug "Building CMake from source..."
             curl --retry 5 "https://cmake.org/files/v3.11/cmake-${_version}.tar.gz" -sS --max-time 120 --fail --output cmake.tar.gz
             tar xzf cmake.tar.gz
-            pushd cmake-${_version}
-            ./bootstrap --prefix="${CMAKE_INSTALL_DIR}" 1>&2
-            make -j8 1>&2
-            make install 1&>2
-            popd
+            run_chdir "cmake-${_version}" \
+                ./bootstrap --prefix="${CMAKE_INSTALL_DIR}" 1>&2
+            make -C "cmake-${_version}" -j8 1>&2
+            make -C "cmake-${_version}" install 1>&2
             debug "CMake build finished"
         fi
         _found="${_expect}"
