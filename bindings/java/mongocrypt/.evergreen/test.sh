@@ -2,6 +2,9 @@
 
 # Test the Java bindings for libmongocrypt
 
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/../../../../.evergreen/init.sh"
+
 set -o xtrace   # Write all commands first to stderr
 set -o errexit  # Exit the script with error if any of the commands fail
 
@@ -15,4 +18,4 @@ fi
 
 ./gradlew -version
 
-./gradlew clean check --info -Djna.debug_load=true -Djna.library.path=${PROJECT_DIRECTORY}/install/libmongocrypt/lib/
+./gradlew clean check --info -Djna.debug_load=true -Djna.library.path=${LIBMONGOCRYPT_INSTALL_ROOT}/lib/
