@@ -298,5 +298,5 @@ function cmake_build_py() {
         fail "No 'python' is available to run the cmake_build_py script"
     fi
     debug "Running CMake configure/build/install process with args: ${@}"
-    "${_py}" -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" "${@}"
+    command "${_py}" -u "${_CMAKE_BUILD_PY}" --cmake="${_cmake}" "${@}"
 }
