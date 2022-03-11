@@ -103,13 +103,10 @@ typedef struct _mcr_csfle_v1_vtable {
            uint32_t ns_len,                                                  \
            uint32_t *bson_len,                                               \
            mongo_csfle_v1_status *status)                                    \
+   X_FUNC (get_version, uint64_t, void)                                      \
+   X_FUNC (get_version_str, const char *, void)                              \
    /* Free bson data created by csfle */                                     \
    X_FUNC (bson_free, void, uint8_t *bson)
-
-   /// At time of writing, these two symbols seem to be missing from the CSFLE
-   /// build, despite documentation in the csfle header (Refer: SERVER-63680):
-   // X_FUNC (get_version, uint64_t, void)
-   // X_FUNC (get_version_str, const char *, void)
 
 #define X_FUNC(Name, RetType, ...) RetType (*Name) (__VA_ARGS__);
    MONGOC_CSFLE_FUNCTIONS_X
@@ -154,5 +151,24 @@ _mongocrypt_new_string_from_bytes (const void *in, int len);
 
 char *
 _mongocrypt_new_json_string_from_binary (mongocrypt_binary_t *binary);
+
+
+bool
+_mongocrypt_parse_kms_providers (
+   mongocrypt_binary_t *kms_providers_definition,
+   _mongocrypt_opts_kms_providers_t *kms_providers,
+   mongocrypt_status_t *status,
+   _mongocrypt_log_t *log);
+
+/* _mongocrypt_needs_credentials returns true if @crypt was configured to
+ * request credentials for any KMS provider. */
+bool
+_mongocrypt_needs_credentials (mongocrypt_t *crypt);
+
+/* _mongocrypt_needs_credentials returns true if @crypt was configured to
+ * request credentials for @provider. */
+bool
+_mongocrypt_needs_credentials_for_provider (
+   mongocrypt_t *crypt, _mongocrypt_kms_provider_t provider);
 
 #endif /* MONGOCRYPT_PRIVATE_H */

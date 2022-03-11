@@ -10,7 +10,7 @@ _build_flags=(
     -D ENABLE_EXTRA_ALIGNMENT=OFF
 )
 
-if [ "${OS:-}" = "Windows_NT" ]; then
+if [ "$OS_NAME" = "Windows_NT" -a "${WINDOWS_32BIT:-}" != "ON" ]; then
     _build_flags+=(-T host=x64 -A x64)
 fi
 

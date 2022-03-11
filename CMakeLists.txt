@@ -22,6 +22,17 @@ endif ()
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
+
+# Enable a higher warning level and warnings-as-errors
+include (MongoC-Warnings)
+option (ENABLE_MORE_WARNINGS_AS_ERRORS "Enable extra warnings-as-errors in the build." OFF)
+if (ENABLE_MORE_WARNINGS_AS_ERRORS)
+   mongoc_add_platform_compile_options (
+      msvc:/W3 msvc:/WX msvc:/wd4996
+      gnu-like:-Wall gnu-like:-Werror
+      )
+endif ()
+
 # Attempt to find libbson by new package name.
 find_package (bson-1.0 1.11 QUIET)
 if (bson-1.0_FOUND)
@@ -98,16 +109,6 @@ set (MONGOCRYPT_SOURCES
    src/os_posix/os_dll.c
    )
 
-if ( MSVC )
-   # W4996 - POSIX name for this item is deprecated
-   set (CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} /W3 /wd4996 /D_CRT_SECURE_NO_WARNINGS")
-
-   # TODO: add support for clang-cl which is detected as MSVC
-else ()
-   # GNU, Clang, AppleClang
-   set (CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wall -Wno-missing-braces")
-endif ()
-
 # If MONGOCRYPT_CRYPTO is not set, choose a system default.
 if (NOT MONGOCRYPT_CRYPTO)
    set (MONGOCRYPT_CRYPTO OpenSSL)
@@ -166,8 +167,6 @@ add_library (mongo::mlib ALIAS _mongo-mlib)
 set_property(
    TARGET _mongo-mlib
    APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS
-   $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
-   $<$<PLATFORM_ID:Windows>:NOMINMAX>
    MLIB_USER
    )
 
@@ -302,13 +301,30 @@ if (BUILD_TESTING)
       PREFIX ""
       )
 
-   add_library (stubbed-csfle SHARED test/csfle-stub.cpp)
-   set_target_properties (stubbed-csfle PROPERTIES
-      # Normalize the output name expected by libmongocrypt
-      PREFIX ""
-      OUTPUT_NAME "mongo_csfle_v1"
-      )
-   target_include_directories (stubbed-csfle PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+   if (MONGOCRYPT_TESTING_CSFLE_FILE)
+      # Generate a target that copies the CSFLE library into the binary directory of test-mongocrypt
+      set (stamp "${CMAKE_CURRENT_BINARY_DIR}/mongo_csfle_v1.copied.$<CONFIG>.stamp")
+      add_custom_command (
+         OUTPUT "${stamp}"
+         COMMAND "${CMAKE_COMMAND}" -E copy
+            "${MONGOCRYPT_TESTING_CSFLE_FILE}"
+            "$<TARGET_FILE_DIR:test-mongocrypt>/mongo_csfle_v1${CMAKE_SHARED_LIBRARY_SUFFIX}"
+         COMMAND "${CMAKE_COMMAND}" -E touch "${stamp}"
+         DEPENDS "${MONGOCRYPT_TESTING_CSFLE_FILE}"
+         COMMENT "Getting mongo_csfle library"
+         )
+      add_custom_target (copy-csfle ALL DEPENDS "${stamp}")
+   else ()
+      message (STATUS "Generating a stubbed csfle dynamic library for use in testing.")
+      message (STATUS "Provide a MONGOCRYPT_TESTING_CSFLE_FILE=<filepath> to provide a csfle for use in testing")
+      add_library (stubbed-csfle SHARED test/csfle-stub.cpp)
+      set_target_properties (stubbed-csfle PROPERTIES
+         # Normalize the output name expected by libmongocrypt
+         PREFIX ""
+         OUTPUT_NAME "mongo_csfle_v1"
+         )
+      target_include_directories (stubbed-csfle PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+   endif ()
 endif ()
 
 set (TEST_MONGOCRYPT_SOURCES
@@ -348,10 +364,13 @@ target_link_libraries (test-mongocrypt PRIVATE mongocrypt_static)
 target_include_directories (test-mongocrypt PRIVATE ./src "${CMAKE_CURRENT_SOURCE_DIR}/kms-message/src")
 target_link_libraries (test-mongocrypt PRIVATE ${BSON_TARGET} mongo::mlib)
 target_include_directories (test-mongocrypt PRIVATE ${BSON_INCLUDES} "${CMAKE_CURRENT_LIST_DIR}/test")
-target_compile_definitions (test-mongocrypt PRIVATE ${BSON_DEFINITIONS})
-
-# Set a definition so that testcases can know where test-mongocrypt.exe was written to
-target_compile_definitions (test-mongocrypt PRIVATE "TEST_MONGOCRYPT_OUTPUT_PATH=\"$<TARGET_FILE:test-mongocrypt>\"")
+target_compile_definitions (test-mongocrypt PRIVATE
+   ${BSON_DEFINITIONS}
+   # Set a definition so that testcases can know where test-mongocrypt.exe was written to
+   "TEST_MONGOCRYPT_OUTPUT_PATH=\"$<TARGET_FILE:test-mongocrypt>\""
+   # Tell test-mongocrypt whether we have a real csfle library for testing
+   TEST_MONGOCRYPT_HAVE_REAL_CSFLE=$<BOOL:${MONGOCRYPT_TESTING_CSFLE_FILE}>
+   )
 
 add_test (
    NAME mongocrypt

@@ -29,21 +29,22 @@ if [ "${PPA_BUILD_ONLY:-}" ]; then
 fi
 
 # Build and install libmongocrypt.
-if [ "${OS:-}" = "Windows_NT" ]; then
-    # W4996 - POSIX name for this item is deprecated
-    # TODO: add support for clang-cl which is detected as MSVC
-    _cflags="/WX"
-else
-    # GNU, Clang, AppleClang
-    _cflags="-Werror"
+if [ "${OS_NAME}" = "windows" -a "${WINDOWS_32BIT:-}" != "ON" ]; then
+    _build_flags+=(-T host=x64 -A x64)
 fi
 
 if test -n "${CONFIGURE_ONLY:-}"; then
     _build_flags+=("--no-build")
 fi
 
+for suffix in "dll" "dylib" "so"; do
+    if test -f "mongo_csfle_v1.$suffix"; then
+        _build_flags+=(-D MONGOCRYPT_TESTING_CSFLE_FILE="$(native_path "$PWD/mongo_csfle_v1.$suffix")")
+    fi
+done
+
 _build_flags+=(
-    -DCMAKE_C_FLAGS="${_cflags:-} ${LIBMONGOCRYPT_EXTRA_CFLAGS:-}"
+    -DCMAKE_C_FLAGS="${LIBMONGOCRYPT_EXTRA_CFLAGS:-}"
 )
 
 cmake_build_py \

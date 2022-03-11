@@ -37,18 +37,18 @@ env BSON_INSTALL_DIR=$DEPS_PREFIX \
 _lmcr_cmake_flags=(
   "${_common_cmake_flags[@]}"
   -D DISABLE_NATIVE_CRYPTO=1
+  -D ENABLE_MORE_WARNINGS_AS_ERRORS=ON
 )
 
 if [ "${OS_NAME}" = "windows" ]; then
   # Set a toolset+platform for libmongocrypt
   _lmcr_cmake_flags+=(-Thost=x64 -A x64)
-  # W4996 - POSIX name for this item is deprecated
   # TODO: add support for clang-cl which is detected as MSVC
-  # Enable warnings-as-errors and link with the static CRT
-  _compile_flags="-WX -MT"
+  # Link with the static CRT
+  _compile_flags="-MT"
 else
   # GNU, Clang, AppleClang, enable position-independent-code
-  _compile_flags="-fPIC -Werror"
+  _compile_flags="-fPIC"
 fi
 
 _lmcr_cmake_flags+=(-D CMAKE_C_FLAGS="${_compile_flags}")

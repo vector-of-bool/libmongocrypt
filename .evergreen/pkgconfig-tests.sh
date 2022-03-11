@@ -28,7 +28,7 @@ _cmake_flags=(
     --wipe
 )
 
-if [ "$OS_NAME" = "windows" ]; then
+if [ "$OS_NAME" = "windows" -a "${WINDOWS_32BIT:-}" != "ON" ]; then
     _cmake_flags+=(-T host=x64 -A x64)
 fi
 

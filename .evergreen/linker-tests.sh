@@ -37,7 +37,7 @@ git clone --quiet "file://${MONGO_C_DRIVER_DIR}" --depth=1 "${_mcd_clone_dir}"
 
 # Setup common build options, passed to cmake_build_py
 _build_flags=(--config="${DEFAULT_CMAKE_BUILD_TYPE}")
-if [ "${OS_NAME}" = "Windows_NT" ]; then
+if [ "${OS_NAME}" = "Windows_NT" -a "${WINDOWS_32BIT:-}" != "ON" ]; then
     debug "Building for Windows x64"
     _build_flags+=(-T host=x64 -A x64)
 fi
