@@ -14,7 +14,7 @@ def _get_program_path(prog):  # type: (str) -> str
     "Find a program on the PATH environment variable"
     if path.basename(prog) != prog:
         # Just a filepath
-        path.realpath(prog)
+        return path.realpath(prog)
     if 'PATHEXT' in environ:
         extensions = environ['PATHEXT'].split(path.pathsep)
     else:
