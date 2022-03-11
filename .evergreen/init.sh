@@ -70,6 +70,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Inhibit msys path conversion
+export MSYS2_ARG_CONV_EXCL="*"
+
 if test "${TRACE:-0}" != "0"; then
     set -o xtrace
 fi
@@ -193,16 +196,20 @@ function native_path() {
     fi
 }
 
+OS_NAME="$(os_name)"
+
 _init_sh_this_file="$(abspath "${BASH_SOURCE[0]}")"
 _init_sh_ci_dir="$(dirname "${_init_sh_this_file}")"
 
-CI_DIR="${_init_sh_ci_dir}"
+# Get the CI dir as a native absolute path. All other path vars are derived from
+# this one, and will therefore remain as native paths
+CI_DIR="$(native_path "${_init_sh_ci_dir}")"
 LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
 
 BUILD_ROOT="${LIBMONGOCRYPT_DIR}/_build"
 INSTALL_ROOT="${LIBMONGOCRYPT_DIR}/_install"
 
-: "${EVERGREEN_DIR:="$(dirname "${LIBMONGOCRYPT_DIR}")"}"
+: "${EVERGREEN_DIR:="$(native_path "$(dirname "${LIBMONGOCRYPT_DIR}")")"}"
 : "${LIBMONGOCRYPT_BUILD_ROOT:="${BUILD_ROOT}/libmongocrypt"}"
 : "${LIBMONGOCRYPT_INSTALL_ROOT:="${INSTALL_ROOT}/libmongocrypt"}"
 : "${MONGO_C_DRIVER_DIR:="${BUILD_ROOT}/mongo-c-driver-src"}"
@@ -210,8 +217,6 @@ INSTALL_ROOT="${LIBMONGOCRYPT_DIR}/_install"
 : "${BSON_INSTALL_DIR:="${INSTALL_ROOT}/mongo-c-driver"}"
 
 : "${DEFAULT_CMAKE_BUILD_TYPE:=RelWithDebInfo}"
-
-OS_NAME="$(os_name)"
 
 # On Windows, we use a multi-conf CMake generator by default, which inserts a
 # directory over build artifacts qualified by the CMake configuration type
@@ -250,7 +255,7 @@ function get_cmake_exe() {
     elif [ "${OS_NAME}" = "windows" ] && have_command cmake; then
         _found=cmake
     elif [ -f "/cygdrive/c/cmake/bin/cmake" ]; then
-        _found="/cygdrive/c/cmake/bin/cmake"
+        _found="$(native_path /cygdrive/c/cmake/bin/cmake)"
     elif uname -a | grep -iq 'x86_64 GNU/Linux'; then
         local _expect="${BUILD_ROOT}/cmake-${_version}/bin/cmake"
         if ! test -f "${_expect}"; then

@@ -97,7 +97,7 @@ debug "Creating test application static linking to libbson1 and dynamic linking 
 _app_build_dir="${_build_prefix}/app"
 cmake_build_py \
     "${_build_flags[@]}" \
-    -D CMAKE_PREFIX_PATH="$(native_path "$_bson1_install_dir");$(native_path "$_lmcr_install_dir")" \
+    -D CMAKE_PREFIX_PATH="$_bson1_install_dir;$_lmcr_install_dir" \
     --source-dir="${_linker_tests_deps_dir}/app" \
     --build-dir="${_app_build_dir}"
 

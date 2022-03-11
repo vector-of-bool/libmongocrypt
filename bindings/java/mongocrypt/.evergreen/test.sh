@@ -18,6 +18,6 @@ export JAVA_HOME
 
 ./gradlew -version
 
-_lib="$(native_path "${LIBMONGOCRYPT_INSTALL_ROOT}/lib")"
-_lib64="$(native_path "${LIBMONGOCRYPT_INSTALL_ROOT}/lib64")"
+_lib="$LIBMONGOCRYPT_INSTALL_ROOT/lib"
+_lib64="$LIBMONGOCRYPT_INSTALL_ROOT/lib64"
 ./gradlew clean check --info -Djna.debug_load=true "-Djna.library.path=${_lib}:${_lib64}"
