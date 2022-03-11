@@ -101,6 +101,11 @@ cmake_build_py \
     --source-dir="${_linker_tests_deps_dir}/app" \
     --build-dir="${_app_build_dir}"
 
+if [ "${OS_NAME}" = "windows" ]; then
+    # Make sure the dlls are in the path
+    export PATH="$_lmcr_install_dir/bin:$_bson1_install_dir/bin:$PATH"
+fi
+
 # Check that the built app gives the right output
 debug "Testing created application..."
 _app_output="$(command "${_app_build_dir}/${BUILD_DIR_INFIX}/app")"
