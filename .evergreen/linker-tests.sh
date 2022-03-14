@@ -110,7 +110,7 @@ fi
 debug "Testing created application..."
 _app_output="$(command "${_app_build_dir}/${BUILD_DIR_INFIX}/app")"
 _expect_output=".calling bson_malloc0..from libbson1..calling mongocrypt_binary_new..from libbson2."
-if [[ "${_app_output}" != "${_expect_output}" ]]; then
+if test "${_app_output}" != "${_expect_output}"; then
     echo "Got '${_app_output}', expected '${_expect_output}'" 1>&2
     exit 1
 fi
