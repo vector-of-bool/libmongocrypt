@@ -388,7 +388,7 @@ add_test (
    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
    )
 
-foreach (test IN ITEMS path str)
+foreach (test IN ITEMS path str error)
    add_executable (mlib.${test}.test src/mlib/${test}.test.c)
    add_test (mlib.${test} mlib.${test}.test)
    target_link_libraries (mlib.${test}.test PRIVATE mongo::mlib)

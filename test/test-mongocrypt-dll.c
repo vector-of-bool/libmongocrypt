@@ -16,8 +16,12 @@ _test_load_simple_library (_mongocrypt_tester_t *t)
                                mstrv_view_cstr ("test-dll.dll"),
                                MPATH_NATIVE);
 
-   mcr_dll lib = mcr_dll_open (dll_path.data);
-   BSON_ASSERT (lib.error_string.len == 0);
+   mcr_dll lib;
+   MERROR_HANDLER_BLOCK (dll_open_error)
+   {
+      lib = mcr_dll_open (dll_path.data);
+      BSON_ASSERT (!e_dll_open_error.got_error);
+   }
 
    int (*say_hello) (void) = mcr_dll_sym (lib, "say_hello");
    BSON_ASSERT (say_hello != NULL);
@@ -28,16 +32,20 @@ _test_load_simple_library (_mongocrypt_tester_t *t)
    mcr_dll_close (lib);
    mstr_free (dll_path);
    mstr_free (self_path);
+   BSON_ASSERT (!merror_has_handler (dll_open_error));
 }
 
 static void
 _test_load_nonesuch (_mongocrypt_tester_t *t)
 {
    (void) t;
-   mcr_dll lib = mcr_dll_open ("no-such-directory/no-such-lib.dll");
-   BSON_ASSERT (lib._native_handle == NULL);
-   BSON_ASSERT (lib.error_string.len > 0);
-   mcr_dll_close (lib);
+   MERROR_HANDLER_BLOCK (dll_open_error)
+   {
+      mcr_dll lib = mcr_dll_open ("no-such-directory/no-such-lib.dll");
+      BSON_ASSERT (lib._native_handle == NULL);
+      BSON_ASSERT (e_dll_open_error.got_error);
+      mcr_dll_close (lib);
+   }
 }
 
 void

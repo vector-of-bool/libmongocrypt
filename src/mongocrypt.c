@@ -385,21 +385,22 @@ static _loaded_csfle
 _try_load_csfle (const char *filepath, _mongocrypt_log_t *log)
 {
    // Try to open the dynamic lib
+   MERROR_HANDLES (dll_open_error);
    mcr_dll lib = mcr_dll_open (filepath);
    // Check for errors, which are represented by strings
-   if (lib.error_string.data) {
+   if (e_dll_open_error.got_error) {
       // Error opening candidate
       _mongocrypt_log (
          log,
          MONGOCRYPT_LOG_LEVEL_WARNING,
          "Error while opening candidate for CSFLE dynamic library [%s]: %s",
-         filepath,
-         lib.error_string.data);
+         e_dll_open_error.handled.dll_path.data,
+         e_dll_open_error.handled.message.data);
       // Free resources, which will include the error string
-      mcr_dll_close (lib);
-      // Bad:
+      MERROR_HANDLES_POP (dll_open_error);
       return (_loaded_csfle){.okay = false};
    }
+   MERROR_HANDLES_POP (dll_open_error);
 
    // Successfully opened DLL
    _mongocrypt_log (log,
@@ -658,12 +659,11 @@ _csfle_drop_global_ref ()
       old_state.vtable.status_destroy (status);
 
 #ifndef __linux__
-      mcr_dll_close (old_state.dll);
-#endif
       /// NOTE: On Linux, skip closing the CSFLE library itself, since a bug in
       /// the way ld-linux and GCC interact causes static destructors to not run
       /// during dlclose(). Still, free the error string:
-      mstr_free (old_state.dll.error_string);
+      mcr_dll_close (old_state.dll);
+#endif
    }
 }
 

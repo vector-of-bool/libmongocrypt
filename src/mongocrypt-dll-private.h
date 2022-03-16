@@ -14,8 +14,16 @@
 #define MCR_DLL_SUFFIX ".so"
 #endif
 
-#define MCR_DLL_NULL \
-   ((mcr_dll){._native_handle = NULL, .error_string = MSTR_NULL})
+#define MCR_DLL_NULL ((mcr_dll){._native_handle = NULL})
+
+typedef struct {
+   mstr dll_path;
+   mstr message;
+} dll_open_error;
+
+MERROR_DECL_ERROR_TYPE (dll_open_error,
+                        (mstr_assign (&handled.message, MSTR_NULL),
+                         mstr_assign (&handled.dll_path, MSTR_NULL)));
 
 /**
  * @brief A dynamically-loaded library i.e. returned by LoadLibrary() or
@@ -24,7 +32,6 @@
 typedef struct mcr_dll {
    // (All supported platforms use a void* as the library handle type)
    void *_native_handle;
-   mstr error_string;
 } mcr_dll;
 
 /**
@@ -55,7 +62,6 @@ mcr_dll_close (mcr_dll dll)
 {
    extern void mcr_dll_close_handle (mcr_dll);
    mcr_dll_close_handle (dll);
-   mstr_free (dll.error_string);
 }
 
 /**

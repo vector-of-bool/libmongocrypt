@@ -85,4 +85,12 @@ mlib_call_once (mlib_once_flag *flag, mlib_init_once_fn_t fn)
 #endif
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#define MLIB_THREAD_LOCAL __thread
+#elif defined(_MSC_VER)
+#define MLIB_THREAD_LOCAL __declspec(thread)
+#else
+#define MLIB_THREAD_LOCAL _No_thread_local_defined_for_this_compiler
+#endif
+
 #endif // MLIB_THREAD_H

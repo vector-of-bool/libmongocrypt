@@ -17,6 +17,8 @@
 
 #include "../mongocrypt-dll-private.h"
 
+MERROR_DEF_ERROR_TYPE_SLOT (dll_open_error);
+
 #ifndef _WIN32
 
 #include <assert.h>
@@ -31,16 +33,13 @@ mcr_dll_open (const char *filepath)
    void *handle = dlopen (filepath, RTLD_LAZY | RTLD_LOCAL);
    if (handle == NULL) {
       // Failed to open. Return NULL and copy the error message
-      return (mcr_dll){
-         ._native_handle = NULL,
-         .error_string = mstr_copy_cstr (dlerror ()),
-      };
+      MERROR_LOAD (dll_open_error,
+                   {.message = mstr_copy_cstr (dlerror ()),
+                    .dll_path = mstr_copy_cstr (filepath)});
+      return (mcr_dll){._native_handle = NULL};
    } else {
       // Okay
-      return (mcr_dll){
-         ._native_handle = handle,
-         .error_string = MSTR_NULL,
-      };
+      return (mcr_dll){._native_handle = handle};
    }
 }
 
