@@ -23,6 +23,8 @@ MERROR_DEF_ERROR_TYPE_SLOT (my_error);
 int
 main ()
 {
+   CHECK (merror_current_error ().id == 0);
+
    MERROR_HANDLES (int);
    CHECK (merror_has_handler (int));
    CHECK (!e_int.got_error);

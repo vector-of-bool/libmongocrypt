@@ -12,6 +12,8 @@
 #include <errno.h>
 #endif
 
+#include <inttypes.h>
+
 /**
  * @brief Obtain a string containing an error message corresponding to an error
  * code from the host platform.
@@ -143,7 +145,6 @@ _merror_e_slot_replace (void *tl_ptrptr, void *new_ptr)
 #define MERROR_LOAD(T, ...) \
    MLIB_ERROR_LOAD_1 (T, pMLIB_ERROR_SLOT_NAME (T), ((T) __VA_ARGS__))
 
-
 #define pMLIB_ERROR_HANDLE_POP_1(T, SlotThreadPtr, SlotVar)            \
    ((void) _merror_e_slot_replace (&SlotThreadPtr, SlotVar._previous), \
     MLIB_CONCAT (_mlib_e_destroy_for_, T) (&SlotVar))
@@ -161,5 +162,31 @@ _merror_e_slot_replace (void *tl_ptrptr, void *new_ptr)
                                 pMLIB_ERROR_SLOT_TYPE (T), \
                                 pMLIB_ERROR_SLOT_NAME (T), \
                                 MLIB_CONCAT (e_, T))
+
+typedef struct merror_id {
+   int64_t id;
+} merror_id;
+
+#ifdef _MSC_VER
+__declspec(selectany)
+#elif __GNUC__ || __clang__
+__attribute__ ((weak))
+#else
+#error "Need a 'selectany'/'weak' attribute for merrir_id"
+#endif
+   extern MLIB_THREAD_LOCAL merror_id _g_mlib_current_error;
+
+static inline merror_id
+merror_new_error ()
+{
+   _g_mlib_current_error.id++;
+   return _g_mlib_current_error;
+}
+
+static inline merror_id
+merror_current_error ()
+{
+   return _g_mlib_current_error;
+}
 
 #endif // MLIB_ERROR_PRIVATE_H
