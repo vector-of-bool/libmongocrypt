@@ -170,11 +170,15 @@ typedef struct merror_id {
 #ifdef _MSC_VER
 __declspec(selectany)
 #elif __GNUC__ || __clang__
-__attribute__ ((weak))
+#if _WIN32
+__attribute__ ((selectany))
 #else
-#error "Need a 'selectany'/'weak' attribute for merrir_id"
+__attribute__ ((weak))
 #endif
-   extern MLIB_THREAD_LOCAL merror_id _g_mlib_current_error;
+#else
+#error "Need a 'selectany'/'weak' attribute for merror_id"
+#endif
+   MLIB_THREAD_LOCAL merror_id _g_mlib_current_error;
 
 static inline merror_id
 merror_new_error ()
