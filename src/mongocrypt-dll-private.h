@@ -22,8 +22,8 @@ typedef struct {
 } dll_open_error;
 
 MERROR_DECL_ERROR_TYPE (dll_open_error,
-                        (mstr_assign (&handled.message, MSTR_NULL),
-                         mstr_assign (&handled.dll_path, MSTR_NULL)));
+                        (mstr_assign (&object->message, MSTR_NULL),
+                         mstr_assign (&object->dll_path, MSTR_NULL)));
 
 /**
  * @brief A dynamically-loaded library i.e. returned by LoadLibrary() or
@@ -32,6 +32,7 @@ MERROR_DECL_ERROR_TYPE (dll_open_error,
 typedef struct mcr_dll {
    // (All supported platforms use a void* as the library handle type)
    void *_native_handle;
+   merror_id error;
 } mcr_dll;
 
 /**

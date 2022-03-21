@@ -385,22 +385,33 @@ static _loaded_csfle
 _try_load_csfle (const char *filepath, _mongocrypt_log_t *log)
 {
    // Try to open the dynamic lib
-   MERROR_HANDLES (dll_open_error);
-   mcr_dll lib = mcr_dll_open (filepath);
-   // Check for errors, which are represented by strings
-   if (e_dll_open_error.got_error) {
-      // Error opening candidate
+   mcr_dll lib;
+   MERROR_HANDLER_BLOCK (dll_open_error)
+   {
+      lib = mcr_dll_open (filepath);
+      merror_handler_deactivate ();
+      if (lib.error.id) {
+         if (merror_get (lib.error, dll_open_error)) {
       _mongocrypt_log (
          log,
          MONGOCRYPT_LOG_LEVEL_WARNING,
-         "Error while opening candidate for CSFLE dynamic library [%s]: %s",
-         e_dll_open_error.handled.dll_path.data,
-         e_dll_open_error.handled.message.data);
-      // Free resources, which will include the error string
-      MERROR_HANDLES_POP (dll_open_error);
+               "Error while opening candidate for CSFLE dynamic library [%s]: "
+               "%s",
+               merror_get (lib.error, dll_open_error)->dll_path.data,
+               merror_get (lib.error, dll_open_error)->message.data);
+         } else {
+            _mongocrypt_log (log,
+                             MONGOCRYPT_LOG_LEVEL_WARNING,
+                             "Unknown error while opening candidate for CSFLE "
+                             "dynamic library [%s]",
+                             filepath);
+         }
+      }
+   }
+
+   if (!mcr_dll_is_open (lib)) {
       return (_loaded_csfle){.okay = false};
    }
-   MERROR_HANDLES_POP (dll_open_error);
 
    // Successfully opened DLL
    _mongocrypt_log (log,

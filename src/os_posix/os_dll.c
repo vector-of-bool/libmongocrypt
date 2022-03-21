@@ -33,10 +33,12 @@ mcr_dll_open (const char *filepath)
    void *handle = dlopen (filepath, RTLD_LAZY | RTLD_LOCAL);
    if (handle == NULL) {
       // Failed to open. Return NULL and copy the error message
-      MERROR_LOAD (dll_open_error,
+      merror_id err = merror_new_error ();
+      merror_load (err,
+                   dll_open_error,
                    {.message = mstr_copy_cstr (dlerror ()),
                     .dll_path = mstr_copy_cstr (filepath)});
-      return (mcr_dll){._native_handle = NULL};
+      return (mcr_dll){._native_handle = NULL, .error = err};
    } else {
       // Okay
       return (mcr_dll){._native_handle = handle};

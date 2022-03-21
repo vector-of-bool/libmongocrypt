@@ -30,20 +30,24 @@ mcr_dll_open (const char *filepath_)
    mstr_widen_result wide = mstr_win32_widen (filepath.view);
    mstr_free (filepath);
    if (wide.error) {
-      MERROR_LOAD (dll_open_error,
+      merror_id err = merror_new_error ();
+      merror_load (err,
+                   dll_open_error,
                    {.message = merror_system_error_string (wide.error),
-                    .dll_path = mstr_copy_cstr (filepath_)})
-      return MCR_DLL_NULL;
+                    .dll_path = mstr_copy_cstr (filepath_)});
+      return (mcr_dll){._native_handle = NULL, .error = err};
    }
    HMODULE lib = LoadLibraryW (wide.wstring);
    free (wide.wstring);
    if (lib == NULL) {
-      MERROR_LOAD (dll_open_error,
+      merror_id err = merror_new_error ();
+      merror_load (err,
+                   dll_open_error,
                    {.message = merror_system_error_string (GetLastError ()),
                     .dll_path = mstr_copy_cstr (filepath_)});
-      return MCR_DLL_NULL;
+      return (mcr_dll){.error = err};
    }
-   return (mcr_dll){.error_string = NULL, ._native_handle = lib};
+   return (mcr_dll){._native_handle = lib};
 }
 
 void
