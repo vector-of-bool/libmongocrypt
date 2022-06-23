@@ -459,35 +459,11 @@ tasks:
   depends_on:
     - variant: ubuntu1604
       name: build-and-test-and-upload
-    - variant: macos_x86_64
-      name: build-and-test-and-upload
-    - variant: rhel72-zseries-test
-      name: build-and-test-and-upload
-    - variant: windows-test
-      name: build-and-test-and-upload
     - variant: linux-64-amazon-ami
-      name: build-and-test-and-upload
-    - variant: amazon2
-      name: build-and-test-and-upload
-    - variant: amazon2-arm64
       name: build-and-test-and-upload
     - variant: debian10
       name: build-and-test-and-upload
     - variant: debian92
-      name: build-and-test-and-upload
-    - variant: rhel-62-64-bit
-      name: build-and-test-and-upload
-    - variant: rhel-67-s390x
-      name: build-and-test-and-upload
-    - variant: rhel-70-64-bit
-      name: build-and-test-and-upload
-    - variant: rhel-71-ppc64el
-      name: build-and-test-and-upload
-    - variant: rhel-80-64-bit
-      name: build-and-test-and-upload
-    - variant: suse12-64
-      name: build-and-test-and-upload
-    - variant: suse15-64
       name: build-and-test-and-upload
     - variant: ubuntu1604-arm64
       name: build-and-test-and-upload
@@ -499,8 +475,6 @@ tasks:
       name: build-and-test-and-upload
     - variant: ubuntu2004-arm64
       name: build-and-test-and-upload
-    - variant: macos
-      name: build-and-test-and-upload
   commands:
     - command: shell.exec
       params:
@@ -508,35 +482,11 @@ tasks:
     - func: "download tarball"
       vars: { variant_name: ubuntu1604 }
     - func: "download tarball"
-      vars: { variant_name: "macos" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel72-zseries-test" }
-    - func: "download tarball"
-      vars: { variant_name: "windows-test" }
-    - func: "download tarball"
       vars: { variant_name: "linux-64-amazon-ami" }
-    - func: "download tarball"
-      vars: { variant_name: "amazon2" }
-    - func: "download tarball"
-      vars: { variant_name: "amazon2-arm64" }
     - func: "download tarball"
       vars: { variant_name: "debian10" }
     - func: "download tarball"
       vars: { variant_name: "debian92" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel-62-64-bit" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel-67-s390x" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel-70-64-bit" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel-71-ppc64el" }
-    - func: "download tarball"
-      vars: { variant_name: "rhel-80-64-bit" }
-    - func: "download tarball"
-      vars: { variant_name: "suse12-64" }
-    - func: "download tarball"
-      vars: { variant_name: "suse15-64" }
     - func: "download tarball"
       vars: { variant_name: "ubuntu1604-arm64" }
     - func: "download tarball"
@@ -547,8 +497,6 @@ tasks:
       vars: { variant_name: "ubuntu2004-64" }
     - func: "download tarball"
       vars: { variant_name: "ubuntu2004-arm64" }
-    - func: "download tarball"
-      vars: { variant_name: "macos" }
     - command: archive.targz_pack
       params:
         target: libmongocrypt-all.tar.gz
