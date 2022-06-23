@@ -560,9 +560,12 @@ tasks:
           set -o xtrace
           set -o errexit
           if [ -n "${tag_upload_location}" ]; then
+            echo "we will upload to a tag location"
             # the 'pre' step detected a release tag on HEAD, so we prepare a
             # local file for upload to a location based on the tag
             tar -zcv -C all -f libmongocrypt-all-${tag_upload_location}.tar.gz *
+          else
+            echo "no tag was detected on this commit"
           fi
     - command: s3.put
       params:
