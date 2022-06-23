@@ -459,8 +459,6 @@ tasks:
   depends_on:
     - variant: ubuntu1604
       name: build-and-test-and-upload
-    - variant: linux-64-amazon-ami
-      name: build-and-test-and-upload
     - variant: debian10
       name: build-and-test-and-upload
     - variant: debian92
@@ -481,8 +479,6 @@ tasks:
         script: mkdir all
     - func: "download tarball"
       vars: { variant_name: ubuntu1604 }
-    - func: "download tarball"
-      vars: { variant_name: "linux-64-amazon-ami" }
     - func: "download tarball"
       vars: { variant_name: "debian10" }
     - func: "download tarball"
