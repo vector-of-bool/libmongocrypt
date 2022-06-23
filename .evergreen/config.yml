@@ -675,7 +675,10 @@ pre:
           # determine if we have a release tag present on HEAD
           head_tag=$(git tag --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
           if [ -n "$head_tag" ]; then
+            echo "found this tag on HEAD: $head_tag"
             TAG_UPLOAD_LOCATION="$head_tag"
+          else
+            echo "no tag found on HEAD"
           fi
         fi
 
