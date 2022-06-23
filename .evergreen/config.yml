@@ -21,8 +21,28 @@ functions:
       params:
         script: |-
           set -o errexit
-          chmod u+x libmongocrypt/.evergreen/*.sh
-          ./libmongocrypt/.evergreen/print-env-info.sh
+          cd libmongocrypt
+          chmod u+x .evergreen/*.sh
+          ./.evergreen/print-env-info.sh
+
+          if [ "${is_patch}" != "true" ]; then
+            # determine if we have a release tag present on HEAD
+            head_tag=$(git tag --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
+            if [ -n "$head_tag" ]; then
+              echo "found this tag on HEAD: $head_tag"
+              echo "tag_upload_location: $head_tag"
+
+              cat <<EOT > ../tag_expansion.yml
+              tag_upload_location: "$head_tag"
+              EOT
+            else
+              echo "no tag found on HEAD"
+            fi
+          fi
+    - command: expansions.update
+      params:
+        ignore_missing_file: true
+        file: tag_expansion.yml
     - command: s3.get
       params:
         aws_key: '${aws_key}'
@@ -658,37 +678,25 @@ pre:
           # patch build.
           REMOTE_SUFFIX="${revision}/${version_id}"
           REMOTE_SUFFIX_COPY="latest/${version_id}"
+        elif [ "${branch_name}" = "master" ]; then
+          # waterfall build.
+          REMOTE_SUFFIX="${revision}"
+          REMOTE_SUFFIX_COPY="latest"
         else
-          if [ "${branch_name}" = "master" ]; then
-            # waterfall build.
-            REMOTE_SUFFIX="${revision}"
-            REMOTE_SUFFIX_COPY="latest"
-          else
-            # waterfall build, not on master branch.
-            REMOTE_SUFFIX="${revision}"
-            REMOTE_SUFFIX_COPY="latest-${branch_name}"
-          fi
-          # determine if we have a release tag present on HEAD
-          head_tag=$(git tag --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
-          if [ -n "$head_tag" ]; then
-            echo "found this tag on HEAD: $head_tag"
-            TAG_UPLOAD_LOCATION="$head_tag"
-          else
-            echo "no tag found on HEAD"
-          fi
+          # waterfall build, not on master branch.
+          REMOTE_SUFFIX="${revision}"
+          REMOTE_SUFFIX_COPY="latest-${branch_name}"
         fi
 
         PROJECT_DIRECTORY="$(pwd)"
         echo "libmongocrypt_s3_suffix: $REMOTE_SUFFIX"
         echo "libmongocrypt_s3_suffix_copy: $REMOTE_SUFFIX_COPY"
         echo "project_directory: $PROJECT_DIRECTORY"
-        echo "tag_upload_location: $TAG_UPLOAD_LOCATION"
 
         cat <<EOT > expansion.yml
         libmongocrypt_s3_suffix: "$REMOTE_SUFFIX"
         libmongocrypt_s3_suffix_copy: "$REMOTE_SUFFIX_COPY"
         project_directory: "$PROJECT_DIRECTORY"
-        tag_upload_location: "$TAG_UPLOAD_LOCATION"
         EOT
   - command: expansions.update
     params:
