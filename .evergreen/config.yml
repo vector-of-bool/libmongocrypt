@@ -27,7 +27,7 @@ functions:
 
           if [ "${is_patch}" != "true" ]; then
             # determine if we have a release tag present on HEAD
-            head_tag=$(git tag --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
+            head_tag=$(git tag -l --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
             if [ -n "$head_tag" ]; then
               echo "found this tag on HEAD: $head_tag"
             else
