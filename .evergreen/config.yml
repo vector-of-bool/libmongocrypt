@@ -483,15 +483,9 @@ tasks:
       name: build-and-test-and-upload
     - variant: debian92
       name: build-and-test-and-upload
-    - variant: ubuntu1604-arm64
-      name: build-and-test-and-upload
     - variant: ubuntu1804-64
       name: build-and-test-and-upload
-    - variant: ubuntu1804-arm64
-      name: build-and-test-and-upload
     - variant: ubuntu2004-64
-      name: build-and-test-and-upload
-    - variant: ubuntu2004-arm64
       name: build-and-test-and-upload
   commands:
     - func: "fetch source"
@@ -507,15 +501,9 @@ tasks:
     - func: "download tarball"
       vars: { variant_name: "debian92" }
     - func: "download tarball"
-      vars: { variant_name: "ubuntu1604-arm64" }
-    - func: "download tarball"
       vars: { variant_name: "ubuntu1804-64" }
     - func: "download tarball"
-      vars: { variant_name: "ubuntu1804-arm64" }
-    - func: "download tarball"
       vars: { variant_name: "ubuntu2004-64" }
-    - func: "download tarball"
-      vars: { variant_name: "ubuntu2004-arm64" }
     - command: archive.targz_pack
       params:
         target: libmongocrypt-all.tar.gz
