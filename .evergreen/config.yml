@@ -28,11 +28,6 @@ functions:
           if [ "${is_patch}" != "true" ]; then
             # determine if we have a release tag present on HEAD
             head_tag=$(git tag -l --points-at HEAD 'MONGOCRYPT-315/[0-9].*' | tail -1 | sed 's/MONGOCRYPT-315\///')
-            if [ -n "$head_tag" ]; then
-              echo "found this tag on HEAD: $head_tag"
-            else
-              echo "no tag found on HEAD"
-            fi
           fi
           echo "tag_upload_location: $head_tag"
 
@@ -479,31 +474,100 @@ tasks:
   depends_on:
     - variant: ubuntu1604
       name: build-and-test-and-upload
+    - variant: macos_x86_64
+      name: build-and-test-and-upload
+    - variant: rhel72-zseries-test
+      name: build-and-test-and-upload
+    - variant: windows-test
+      name: build-and-test-and-upload
+    - variant: linux-64-amazon-ami
+      name: build-and-test-and-upload
+    - variant: amazon2
+      name: build-and-test-and-upload
+    - variant: amazon2-arm64
+      name: build-and-test-and-upload
     - variant: debian10
       name: build-and-test-and-upload
     - variant: debian92
       name: build-and-test-and-upload
+    - variant: rhel-62-64-bit
+      name: build-and-test-and-upload
+    - variant: rhel-67-s390x
+      name: build-and-test-and-upload
+    - variant: rhel-70-64-bit
+      name: build-and-test-and-upload
+    - variant: rhel-71-ppc64el
+      name: build-and-test-and-upload
+    - variant: rhel-80-64-bit
+      name: build-and-test-and-upload
+    - variant: suse12-64
+      name: build-and-test-and-upload
+    - variant: suse15-64
+      name: build-and-test-and-upload
+    - variant: ubuntu1604-arm64
+      name: build-and-test-and-upload
     - variant: ubuntu1804-64
       name: build-and-test-and-upload
+    - variant: ubuntu1804-arm64
+      name: build-and-test-and-upload
     - variant: ubuntu2004-64
+      name: build-and-test-and-upload
+    - variant: ubuntu2004-arm64
+      name: build-and-test-and-upload
+    - variant: macos
       name: build-and-test-and-upload
   commands:
     - func: "fetch source"
     - command: shell.exec
       params:
         script: |-
+          # this directory was created in "fetch source", but it isn't needed here
           rm -rf libmongocrypt
           mkdir all
     - func: "download tarball"
       vars: { variant_name: ubuntu1604 }
     - func: "download tarball"
+      vars: { variant_name: "macos" }
+    - func: "download tarball"
+      vars: { variant_name: "rhel72-zseries-test" }
+    - func: "download tarball"
+      vars: { variant_name: "windows-test" }
+    - func: "download tarball"
+      vars: { variant_name: "linux-64-amazon-ami" }
+    - func: "download tarball"
+      vars: { variant_name: "amazon2" }
+    - func: "download tarball"
+      vars: { variant_name: "amazon2-arm64" }
+    - func: "download tarball"
       vars: { variant_name: "debian10" }
     - func: "download tarball"
       vars: { variant_name: "debian92" }
     - func: "download tarball"
+      vars: { variant_name: "rhel-62-64-bit" }
+    - func: "download tarball"
+      vars: { variant_name: "rhel-67-s390x" }
+    - func: "download tarball"
+      vars: { variant_name: "rhel-70-64-bit" }
+    - func: "download tarball"
+      vars: { variant_name: "rhel-71-ppc64el" }
+    - func: "download tarball"
+      vars: { variant_name: "rhel-80-64-bit" }
+    - func: "download tarball"
+      vars: { variant_name: "suse12-64" }
+    - func: "download tarball"
+      vars: { variant_name: "suse15-64" }
+    - func: "download tarball"
+      vars: { variant_name: "ubuntu1604-arm64" }
+    - func: "download tarball"
       vars: { variant_name: "ubuntu1804-64" }
     - func: "download tarball"
+      vars: { variant_name: "ubuntu1804-arm64" }
+    - func: "download tarball"
       vars: { variant_name: "ubuntu2004-64" }
+    - func: "download tarball"
+      vars: { variant_name: "ubuntu2004-arm64" }
+    - func: "download tarball"
+      vars: { variant_name: "macos" }
     - command: archive.targz_pack
       params:
         target: libmongocrypt-all.tar.gz
@@ -512,15 +576,11 @@ tasks:
     - command: shell.exec
       params:
         script: |-
-          set -o xtrace
           set -o errexit
           if [ -n "${tag_upload_location}" ]; then
-            echo "we will upload to a tag location"
             # the "fetch source" step detected a release tag on HEAD, so we
             # prepare a local file for upload to a location based on the tag
             cp -a libmongocrypt-all.tar.gz libmongocrypt-all-${tag_upload_location}.tar.gz
-          else
-            echo "no tag was detected on this commit"
           fi
     - command: s3.put
       params:
