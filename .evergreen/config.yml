@@ -494,9 +494,12 @@ tasks:
     - variant: ubuntu2004-arm64
       name: build-and-test-and-upload
   commands:
+    - func: "fetch source"
     - command: shell.exec
       params:
-        script: mkdir all
+        script: |-
+          rm -rf libmongocrypt
+          mkdir all
     - func: "download tarball"
       vars: { variant_name: ubuntu1604 }
     - func: "download tarball"
