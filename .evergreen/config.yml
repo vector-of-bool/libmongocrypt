@@ -530,7 +530,7 @@ tasks:
             echo "we will upload to a tag location"
             # the "fetch source" step detected a release tag on HEAD, so we
             # prepare a local file for upload to a location based on the tag
-            tar -zcv -C all -f libmongocrypt-all-${tag_upload_location}.tar.gz *
+            cp -a libmongocrypt-all.tar.gz libmongocrypt-all-${tag_upload_location}.tar.gz
           else
             echo "no tag was detected on this commit"
           fi
