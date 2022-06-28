@@ -33,20 +33,21 @@ param (
     #
     # Supports tab-completion if vswhere.exe is present.
     [Parameter(Mandatory)]
-    [ArgumentCompleter({
-            param($commandName, $paramName, $wordToComplete, $commandAst, $fakeBoundParameters)
-            $vswhere_found = @(Get-ChildItem -Filter vswhere.exe `
-                    -Path 'C:\Program Files*\Microsoft Visual Studio\Installer\' `
-                    -Recurse)[0]
-            if ($null -eq $vswhere_found) {
-                Write-Host "No vswhere found"
-                return $null
-            }
-            return & $vswhere_found -utf8 -nologo -format json -all -legacy -prerelease -products * `
-            | ConvertFrom-Json `
-            | ForEach-Object { $_.installationVersion } `
-            | Where-Object { $_ -like "$wordToComplete*" }
-        })]
+    # xxx: This requires PowerShell 5+, which some build hosts don't have:
+    # [ArgumentCompleter({
+    #         param($commandName, $paramName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    #         $vswhere_found = @(Get-ChildItem -Filter vswhere.exe `
+    #                 -Path 'C:\Program Files*\Microsoft Visual Studio\Installer\' `
+    #                 -Recurse)[0]
+    #         if ($null -eq $vswhere_found) {
+    #             Write-Host "No vswhere found"
+    #             return $null
+    #         }
+    #         return & $vswhere_found -utf8 -nologo -format json -all -legacy -prerelease -products * `
+    #         | ConvertFrom-Json `
+    #         | ForEach-Object { $_.installationVersion } `
+    #         | Where-Object { $_ -like "$wordToComplete*" }
+    #     })]
     [string]
     $Version,
     # The target architecture for the build

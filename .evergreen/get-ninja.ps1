@@ -21,12 +21,14 @@ $ErrorActionPreference = 'Stop'
 
 $ProgressPreference = "SilentlyContinue"
 $ninja_zip = Join-Path $DestDir ".ninja.zip"
+[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11'
 Invoke-WebRequest `
     -UseBasicParsing `
     -Uri "https://github.com/ninja-build/ninja/releases/download/v$Version/ninja-win.zip" `
     -OutFile $ninja_zip
 
 $expand_dir = Join-Path $DestDir "_expanded"
+New-Item $expand_dir -ItemType Directory -Force | Out-Null
 Expand-Archive -Path $ninja_zip $expand_dir
 
 Move-Item $expand_dir/ninja.exe -Destination $DestDir/ninja.exe -Force

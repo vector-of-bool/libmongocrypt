@@ -24,7 +24,7 @@ build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir")
 # Use C driver helper script to find cmake binary, stored in $CMAKE.
 if [ "$OS_NAME" == "windows" ]; then
     : "${CMAKE:=/cygdrive/c/cmake/bin/cmake}"
-    build_argv+=(--msvs)
+    build_argv+=(--msvs -D CMAKE_C_COMPILER=cl -D CMAKE_CXX_COMPILER=cl)
     if [ "$WINDOWS_32BIT" = "ON" ]; then
         build_argv+=(--msvs-target-arch x86)
     fi
