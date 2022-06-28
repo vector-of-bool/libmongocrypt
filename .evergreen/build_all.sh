@@ -39,6 +39,8 @@ else
     fi
 fi
 
+export CMAKE
+
 if [ "$PPA_BUILD_ONLY" ]; then
     # Clean-up from previous build iteration
     cd $EVERGREEN_DIR
