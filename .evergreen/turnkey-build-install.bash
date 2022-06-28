@@ -96,6 +96,9 @@ if test "$OS_NAME" = "windows" && "${msvs:-${LOAD_VS_ENV:-false}}"; then
             -VSVersion "${vs_version:-*}" \
             -Settings "$(join_str ", " "${cmake_settings[@]}")"
 else
+    if have_command ninja || have_command ninja-build; then
+        cmake_argv+=(-GNinja)
+    fi
     $cmake -DCMAKE_BUILD_TYPE="$config" \
            -DCMAKE_INSTALL_PREFIX="$install_dir" \
            "${cmake_argv[@]}" \
