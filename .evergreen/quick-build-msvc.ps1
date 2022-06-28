@@ -28,7 +28,7 @@ param (
 
 $ErrorActionPreference = "stop"
 
-$evg_dir = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Source)
+$evg_dir = $PSScriptRoot
 $libmongocrypt_dir = Split-Path -Parent $evg_dir
 
 if ([string]::IsNullOrEmpty($BuildDir)) {
