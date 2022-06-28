@@ -11,6 +11,25 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @macro MLIB_INIT
+ * @brief Use `MLIB_INIT` before a compound initializer to ensure compatibility
+ * with C++.
+ *
+ * Using a compound initializer is invalid syntax in C++, but if the typename is
+ * not wrapped in parenthesis, it will be treated as a regular aggregate
+ * initializer. `MLIB_INIT` will drop the parenthesis when compiling as C++
+ */
+#ifdef __cplusplus
+#define MLIB_INIT(T) T
+#else
+#define MLIB_INIT(T) (T)
+#endif
+
 /**
  * @brief A simple non-owning string-view type.
  *
@@ -118,11 +137,11 @@ typedef struct mstr_mut {
 /**
  * @brief A null @ref mstr
  */
-#define MSTR_NULL ((mstr){{{.data = NULL, .len = 0}}})
+#define MSTR_NULL (MLIB_INIT (mstr){{{NULL, 0}}})
 /**
  * @brief A null @ref mstr_view
  */
-#define MSTRV_NULL ((mstr_view){.data = NULL, .len = 0})
+#define MSTRV_NULL (MLIB_INIT (mstr_view){NULL, 0})
 
 /**
  * @brief Create an @ref mstr_view that views the given string literal
@@ -145,7 +164,7 @@ static inline mstr_mut
 mstr_new (size_t len)
 {
 #ifndef __clang_analyzer__
-   return (mstr_mut){{{.data = (char *) calloc (1, len + 1), .len = len}}};
+   return MLIB_INIT (mstr_mut){{{(char *) calloc (1, len + 1), len}}};
 #else
    // Clang-analyzer is smart enough to see the calloc(), but not smart enough
    // to link it to the free() in mstr_free()
@@ -163,7 +182,7 @@ mstr_new (size_t len)
 static inline mstr_view
 mstrv_view_data (const char *s, size_t len)
 {
-   return (mstr_view){.data = s, .len = len};
+   return MLIB_INIT (mstr_view){s, len};
 }
 
 /**
@@ -495,7 +514,7 @@ mstrv_subview (mstr_view s, size_t at, size_t len)
    if (len > remain) {
       len = remain;
    }
-   return (mstr_view){.data = s.data + at, .len = len};
+   return mstrv_view_data (s.data + at, len);
 }
 
 /**
@@ -783,13 +802,13 @@ mstr_win32_widen (mstr_view str)
    int length = MultiByteToWideChar (
       CP_UTF8, MB_ERR_INVALID_CHARS, str.data, (int) str.len, NULL, 0);
    if (length == 0 && str.len != 0) {
-      return (mstr_widen_result){.wstring = NULL, .error = GetLastError ()};
+      return MLIB_INIT (mstr_widen_result){NULL, (int) GetLastError ()};
    }
-   wchar_t *ret = calloc (length + 1, sizeof (wchar_t));
+   wchar_t *ret = (wchar_t *) calloc (length + 1, sizeof (wchar_t));
    int got_length = MultiByteToWideChar (
       CP_UTF8, MB_ERR_INVALID_CHARS, str.data, (int) str.len, ret, length + 1);
    assert (got_length == length);
-   return (mstr_widen_result){.wstring = ret, .error = 0};
+   return MLIB_INIT (mstr_widen_result){ret, 0};
 }
 
 /**
@@ -825,8 +844,7 @@ mstr_win32_narrow (const wchar_t *wstring)
                                      NULL,
                                      NULL);
    if (length == 0 && wstring[0] != 0) {
-      return (mstr_narrow_result){.string = MSTR_NULL,
-                                  .error = GetLastError ()};
+      return MLIB_INIT (mstr_narrow_result){MSTR_NULL, (int) GetLastError ()};
    }
    // Allocate a new string, not including the null terminator
    mstr_mut ret = mstr_new ((size_t) (length - 1));
@@ -840,7 +858,7 @@ mstr_win32_narrow (const wchar_t *wstring)
                                       NULL,
                                       NULL);
    assert (length == got_len);
-   return (mstr_narrow_result){.string = ret.mstr, .error = 0};
+   return MLIB_INIT (mstr_narrow_result){ret.mstr, 0};
 }
 #endif
 
@@ -896,7 +914,12 @@ _mstr_split_iter_next_ (struct _mstr_split_iter_ *iter)
 static inline struct _mstr_split_iter_
 _mstr_split_iter_begin_ (mstr_view str, mstr_view split)
 {
-   struct _mstr_split_iter_ iter = {.remaining = str, .splitter = split};
+   struct _mstr_split_iter_ iter;
+   iter.remaining = str;
+   iter.part = MSTRV_NULL;
+   iter.splitter = split;
+   iter.once = false;
+   iter.state = 0;
    _mstr_split_iter_next_ (&iter);
    return iter;
 }
@@ -923,5 +946,9 @@ _mstr_split_iter_done_ (struct _mstr_split_iter_ *iter)
            _iter_var_.once;                                       \
            --_iter_var_.once)
 // clang-format on
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // MONGOCRYPT_STR_PRIVATE_H

@@ -45,6 +45,9 @@ $ninja_bin = Join-Path $BuildDir "ninja"
 $vs_env_run = Join-Path $evg_dir "vs-env-run.ps1"
 $ci_ps1 = Join-Path $evg_dir "ci.ps1"
 
+Write-Host "Run script [$vs_env_run]"
+Write-Host $PSVersionTable
+
 & $vs_env_run -Version:$VSVersion -Target:$TargetArch -Command {
     $more_settings = @($Settings)
     $more_settings += "CMAKE_MAKE_PROGRAM=$ninja_bin"
