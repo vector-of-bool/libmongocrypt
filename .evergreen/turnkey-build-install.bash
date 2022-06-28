@@ -98,6 +98,8 @@ if test "$OS_NAME" = "windows" && "${msvs:-${LOAD_VS_ENV:-false}}"; then
 else
     if have_command ninja || have_command ninja-build; then
         cmake_argv+=(-GNinja)
+    else
+        export MAKEFLAGS="-j8 ${MAKEFLAGS:-}"
     fi
     $cmake -DCMAKE_BUILD_TYPE="$config" \
            -DCMAKE_INSTALL_PREFIX="$install_dir" \
