@@ -27,7 +27,7 @@ Invoke-WebRequest `
     -OutFile $ninja_zip
 
 $expand_dir = Join-Path $DestDir "_expanded"
-Expand-Archive -Path $ninja_zip -DestinationPath $expand_dir
+Expand-Archive -Path $ninja_zip $expand_dir
 
 Move-Item $expand_dir/ninja.exe -Destination $DestDir/ninja.exe -Force
 Remove-Item $expand_dir -Recurse
