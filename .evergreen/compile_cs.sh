@@ -1,7 +1,5 @@
 # Compiles libmongocrypt dependencies and targets.
 #
-# Set extra cflags for libmongocrypt variables by setting LIBMONGOCRYPT_EXTRA_CFLAGS.
-#
 
 set -o xtrace
 set -o errexit

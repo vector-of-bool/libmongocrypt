@@ -22,6 +22,11 @@ option (ENABLE_ONLINE_TESTS "Enable online tests and the csfle utility" ON)
 
 list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
+if (DEFINED MONGOCRYPT_SANITIZE)
+   add_compile_options (-fsanitize=${MONGOCRYPT_SANITIZE})
+   link_libraries (-fsanitize=${MONGOCRYPT_SANITIZE})
+endif ()
+
 include (GNUInstallDirs)
 
 include (ImportBSON)
