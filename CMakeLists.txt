@@ -444,6 +444,17 @@ if (NOT MONGOCRYPT_CRYPTO STREQUAL none)
    target_link_libraries (example-state-machine-static PRIVATE mongocrypt_static _mongocrypt::libbson_for_static)
    target_include_directories (example-state-machine-static PRIVATE ./src)
 
+   add_test (
+      NAME example-state-machine
+      COMMAND example-state-machine
+      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+   )
+   add_test (
+      NAME example-state-machine-static
+      COMMAND example-state-machine-static
+      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+   )
+
    if (ENABLE_ONLINE_TESTS)
       message ("compiling utilities")
       add_executable (csfle test/util/csfle.c test/util/util.c)

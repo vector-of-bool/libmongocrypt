@@ -16,27 +16,9 @@ evergreen_root="$(pwd)"
 
 . ${evergreen_root}/libmongocrypt/.evergreen/setup-env.sh
 
-BIN_DIR=./cmake-build
 KMS_BIN_DIR=./cmake-build/kms-message
-NOCRYPTO_BIN_DIR=./cmake-build-nocrypto
-if [ "Windows_NT" == "$OS" ]; then
-    BIN_DIR=./cmake-build/RelWithDebInfo
-    KMS_BIN_DIR=./cmake-build/kms-message/RelWithDebInfo
-    NOCRYPTO_BIN_DIR=./cmake-build-nocrypto/RelWithDebInfo
-fi
 
 echo "Running kms-message tests."
 cd libmongocrypt/kms-message
 $VALGRIND ../${KMS_BIN_DIR}/test_kms_request
 cd ../..
-
-echo "Running libmongocrypt tests."
-cd libmongocrypt
-MONGOCRYPT_TRACE=ON $VALGRIND ${BIN_DIR}/test-mongocrypt
-echo "Running example state machine."
-$VALGRIND ${BIN_DIR}/example-state-machine
-echo "Running example state machine (statically linked)."
-$VALGRIND ${BIN_DIR}/example-state-machine-static
-echo "Running libmongocrypt tests with no native crypto"
-MONGOCRYPT_TRACE=ON $VALGRIND ${NOCRYPTO_BIN_DIR}/test-mongocrypt
-cd ..

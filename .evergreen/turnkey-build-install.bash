@@ -107,6 +107,7 @@ else
            "-B$build_dir" \
            "-H$LIBMONGOCRYPT_DIR"
     $cmake --build "$build_dir" --config "$config"
-    $cmake --build "$build_dir" --config "$config" --target test
+    env CTEST_OUTPUT_ON_FAILURE=1 \
+        $cmake --build "$build_dir" --config "$config" --target test
     $cmake -D CMAKE_INSTALL_CONFIG_NAME="$config" -P "$build_dir/cmake_install.cmake"
 fi
