@@ -259,7 +259,8 @@ functions:
     - command: "shell.exec"
       params:
         script: |-
-          ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
+          set -e
+          ${compile_env|} ./libmongocrypt/.evergreen/build_one.sh
           ${test_env|} ./libmongocrypt/.evergreen/test.sh
           ${compile_env|} ./libmongocrypt/.evergreen/compile_cs.sh
 

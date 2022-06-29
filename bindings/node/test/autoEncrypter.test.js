@@ -34,7 +34,6 @@ if (!fs.existsSync(sharedLibraryStub)) {
     'deps',
     'tmp',
     'libmongocrypt-build',
-    ...(process.platform === 'win32' ? ['RelWithDebInfo'] : []),
     `mongo_crypt_v1.${sharedLibrarySuffix}`
   );
 }

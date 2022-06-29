@@ -19,6 +19,7 @@
 #       [-D <key=val> [-D ...]]
 #           Specify CMake '-D' options. Can be provided multiple times.
 #
+# This script does not provide any implicit configuration options to CMake.
 
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/init.sh"

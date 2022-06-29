@@ -28,7 +28,7 @@
       <Pack>true</Pack>
     </Content>
 
-    <Content Include="@mongocrypt_BINARY_DIR@/RelWithDebInfo/mongocrypt.dll" Condition="'$(Configuration)'=='Release' And Exists('@mongocrypt_BINARY_DIR@/RelWithDebInfo/mongocrypt.dll')">
+    <Content Include="@mongocrypt_BINARY_DIR@/mongocrypt.dll" Condition="'$(Configuration)'=='Release' And Exists('@mongocrypt_BINARY_DIR@/mongocrypt.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <PackagePath>x64/native/windows/mongocrypt.dll</PackagePath>
       <Pack>true</Pack>

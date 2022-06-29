@@ -17,12 +17,12 @@ var downloadedMongocryptDirectory=buildDirectory.Combine("downloadedMongocryptDi
 var localReleaseVersion = "local-0.0.0";
 var releaseVersion = GetSettingValue("releaseVersion", localReleaseVersion);
 var fork = GetSettingValue("fork", "https://github.com/mongodb/libmongocrypt.git");
-var branch = GetSettingValue("branch", "master"); 
+var branch = GetSettingValue("branch", "master");
 // release 1.5.0-rc1
 var libmongocryptAllUrl = GetSettingValue("url", "https://mciuploads.s3.amazonaws.com/libmongocrypt/all/master/6e100b087376d448534cb2ad1b4dc50cb7cbc1f6/libmongocrypt-all.tar.gz");
 var csharpBindingsGitTagName = $"csharp-v{releaseVersion}";
 var csharpBindingsDirectory = buildDirectory.Combine(csharpBindingsGitTagName);
-var libmongocryptRelWithDebInfoDirectory = csharpBindingsDirectory.Combine("cmake-build").Combine("RelWithDebInfo");
+var libmongocryptCMakeBuildDirectory = csharpBindingsDirectory.Combine("cmake-build");
 var libmongocryptCsDirectory = csharpBindingsDirectory.Combine("bindings").Combine("cs");
 var libmongocryptSolutionDirectory = libmongocryptCsDirectory.Combine("MongoDB.Libmongocrypt");
 var libmongocryptSolutionFile = libmongocryptSolutionDirectory.CombineWithFilePath("MongoDB.Libmongocrypt.csproj");
@@ -35,7 +35,7 @@ Task("Prepare")
         if (DirectoryExists(buildDirectory))
         {
             DeleteDirectory(
-                buildDirectory, 
+                buildDirectory,
                 new DeleteDirectorySettings {
                     Recursive = true,
                     Force = true
@@ -52,14 +52,14 @@ Task("Prepare")
         EnsureDirectoryExists(libmongocryptAllDirectory);
         var nativeLibrariesArchive = libmongocryptAllDirectory.CombineWithFilePath("libmongocrypt-all.tar");
         DownloadFile(libmongocryptAllUrl, nativeLibrariesArchive);
-        
+
         Information("Unzipping..");
         UncompressToTheCurrentDirectory(nativeLibrariesArchive);
 
         Information("Cloning the libmongocrypt repo..");
         GitClone(
-            fork, 
-            csharpBindingsDirectory, 
+            fork,
+            csharpBindingsDirectory,
             new GitCloneSettings
             {
                 BranchName = branch,
@@ -68,7 +68,7 @@ Task("Prepare")
                 RecurseSubmodules = true
             });
 
-        EnsureDirectoryExists(libmongocryptRelWithDebInfoDirectory);
+        EnsureDirectoryExists(libmongocryptCMakeBuildDirectory);
         EnsureDirectoryExists(downloadedMongocryptDirectory);
         CopyFile(
             libmongocryptAllDirectory.Combine("windows-test").Combine("bin").CombineWithFilePath("mongocrypt.dll"),
@@ -79,13 +79,13 @@ Task("Prepare")
         CopyFile(
             libmongocryptAllDirectory.Combine("macos").Combine("nocrypto").Combine("lib").CombineWithFilePath("libmongocrypt.dylib"),
             downloadedMongocryptDirectory.CombineWithFilePath("libmongocrypt.dylib"));
-        CopyDirectory(downloadedMongocryptDirectory, libmongocryptRelWithDebInfoDirectory);
+        CopyDirectory(downloadedMongocryptDirectory, libmongocryptCMakeBuildDirectory);
     });
 
 Task("Tests")
     .IsDependentOn("Prepare")
     .DoesForEach(
-    () => 
+    () =>
     {
         var monikersDetails = new List<(string Moniker, string Bitness)>
         {
@@ -113,7 +113,7 @@ Task("Tests")
         );
     })
     .DeferOnError();
-    
+
 Task("CreatePackage")
     .IsDependentOn("Tests")
     .Does(() =>
@@ -133,7 +133,7 @@ Task("CreatePackage")
             projectFullPath,
             settings);
     });
-    
+
 Task("NugetPush")
     .Does(() =>
     {
@@ -144,13 +144,13 @@ Task("NugetPush")
         Information(packageFilePath);
         NuGetPush(
             packageFilePath,
-            new NuGetPushSettings 
+            new NuGetPushSettings
             {
                 ApiKey = nugetApi,
                 Source = "https://api.nuget.org/v3/index.json"
             });
     });
-    
+
 Task("CreateGitTag")
     .Does(() =>
     {
@@ -159,8 +159,8 @@ Task("CreateGitTag")
         Information($"Directory: {libmongocryptSolutionDirectory}");
         Information("Show origin:");
         Git(libmongocryptSolutionDirectory, "remote -v");
-        Git(libmongocryptSolutionDirectory, $"tag -a {csharpBindingsGitTagName} -m {csharpBindingsGitTagName}"); 
-        Git(libmongocryptSolutionDirectory, $"push origin {csharpBindingsGitTagName}"); 
+        Git(libmongocryptSolutionDirectory, $"tag -a {csharpBindingsGitTagName} -m {csharpBindingsGitTagName}");
+        Git(libmongocryptSolutionDirectory, $"push origin {csharpBindingsGitTagName}");
     });
 
 RunTarget(target);
@@ -186,7 +186,7 @@ string GetSettingValue(string commandArgumentName, string defaultValue)
             return defaultValue;
         }
     }
-    
+
     return environmentVariable;
 }
 
