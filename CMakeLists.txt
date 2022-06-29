@@ -426,7 +426,7 @@ foreach (test IN ITEMS path str)
    target_link_libraries (mlib.${test}.test PRIVATE mongo::mlib)
 endforeach ()
 
-if ("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
+if ("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.12")
    add_executable (csfle-markup src/csfle-markup.cpp)
    target_link_libraries (csfle-markup PRIVATE mongocrypt_static _mongocrypt::libbson_for_static mongo::mlib)
    target_compile_features (csfle-markup PRIVATE cxx_std_20)

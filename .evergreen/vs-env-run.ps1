@@ -80,17 +80,19 @@ param (
 
 $ErrorActionPreference = 'Stop'
 
-# Find a vswhere executable
-$vswhere_found = Get-ChildItem -Filter vswhere.exe `
-    -Path 'C:\Program Files*\Microsoft Visual Studio\Installer\' `
-    -Recurse
+$this_dir = $PSScriptRoot
+$vswhere = Join-Path $this_dir "vswhere.exe"
 
-$vswhere = @($vswhere_found)[0]
-Write-Debug "Found vswhere: $vswhere"
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11'
+Invoke-WebRequest `
+    -UseBasicParsing `
+    -Uri "https://github.com/microsoft/vswhere/releases/download/3.0.3/vswhere.exe" `
+    -OutFile $vswhere
 
 # Ask vswhere for all the installed products:
-$vs_versions = & $vswhere -utf8 -nologo -format json -all -legacy -prerelease -products * `
-| ConvertFrom-Json
+$vswhere_json = & $vswhere -utf8 -nologo -format json -all -legacy -prerelease -products * | Out-String
+$vs_versions = $vswhere_json | ConvertFrom-Json
 
 # Pick the produce that matches the pattern
 $selected = @($vs_versions `
@@ -101,7 +103,7 @@ if ($selected.Length -eq 0) {
 }
 
 $selected = $selected[0]
-Write-Debug "Selected Visual Studio version $($selected.installationVersion)"
+Write-Host "Selected Visual Studio version $($selected.installationVersion)"
 
 # Find the environment-activation script for the chosen VS
 $vsdevcmd_bat = @(Get-ChildItem `

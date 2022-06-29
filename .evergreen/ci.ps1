@@ -18,7 +18,7 @@ param (
     $Settings,
     # The CMake executable to run. If unspecified, uses the 'cmake' on PATH
     [string]
-    $CMake = "cmake",
+    $CMake,
     # Set the CMake generator with '-G'
     [string]
     $Generator,
@@ -44,12 +44,21 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$cmake_exe = (Get-Command $CMake -CommandType Application).Source
+if ([string]::IsNullOrEmpty($CMake)) {
+    if (Test-Path Env:/CMAKE) {
+        $CMake = $env:CMAKE
+    }
+    else {
+        $CMake = "cmake"
+    }
+}
 
-Write-Debug "Using CMake executable [$cmake_exe]"
+$cmake_exe = (Get-Command $CMake -CommandType Application).Path
+
+Write-Host "Using CMake executable [$cmake_exe]"
 
 # The .evergreen directory
-$evg_dir = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Source)
+$evg_dir = $PSScriptRoot
 
 $libmongocrypt_dir = Split-Path -Parent $evg_dir
 
@@ -110,7 +119,7 @@ if (-not $SkipTests) {
     Write-Host "Testing $Config in [$BuildDir]"
     $cmake_bin_dir = Split-Path -Parent $cmake_exe
     $ctest_exe = Join-Path $cmake_bin_dir "ctest"
-    $ctest = (Get-Command $ctest_exe).Source
+    $ctest = (Get-Command $ctest_exe).Path
     & $cmake_exe -E chdir $BuildDir `
         $ctest -C $Config --output-on-failure
     if ($LASTEXITCODE -ne 0) {
@@ -120,7 +129,7 @@ if (-not $SkipTests) {
 
 if ($want_install) {
     Write-Host "Installing $Config from [$BuildDir] into [$InstallDir]"
-    & $cmake_exe --install $BuildDir --config $Config --prefix $InstallDir
+    & $cmake_exe -D CMAKE_INSTALL_CONFIG_NAME="$Config" -P "$BuildDir/cmake_install.cmake"
     if ($LASTEXITCODE -ne 0) {
         throw "CMake install failed [$LASTEXITCODE]"
     }

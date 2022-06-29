@@ -281,14 +281,14 @@ tasks:
   - func: "fetch source"
   - func: "build and test"
     vars:
-      compile_env: LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS="-DUSE_SHARED_LIBBSON=ON"
+      compile_env: ${compile_env|} LIBMONGOCRYPT_EXTRA_CMAKE_FLAGS="-DUSE_SHARED_LIBBSON=ON"
 
 - name: build-and-test-asan
   commands:
   - func: "fetch source"
   - func: "build and test"
     vars:
-      compile_env: MONGOCYRPT_SANITIZE=address
+      compile_env: ${compile_env|} MONGOCYRPT_SANITIZE=address
       test_env: ASAN_OPTIONS="detect_leaks=1" LSAN_OPTIONS="suppressions=.lsan-suppressions"
 
 - name: build-and-test-asan-mac
@@ -296,7 +296,7 @@ tasks:
   - func: "fetch source"
   - func: "build and test"
     vars:
-      compile_env:  MONGOCYRPT_SANITIZE=address
+      compile_env: ${compile_env|}  MONGOCYRPT_SANITIZE=address
       test_env: LSAN_OPTIONS="suppressions=.lsan-suppressions"
 
 - name: build-and-test-asan-s390x
@@ -304,7 +304,7 @@ tasks:
   - func: "fetch source"
   - func: "build and test"
     vars:
-      compile_env:  MONGOCYRPT_SANITIZE=address
+      compile_env: ${compile_env|}  MONGOCYRPT_SANITIZE=address
       test_env: LSAN_OPTIONS="suppressions=.lsan-suppressions"
 
 - name: build-and-test-valgrind
@@ -767,12 +767,16 @@ buildvariants:
 - name: windows-vs2015-compile
   display_name: "Windows VS 2015 compile"
   run_on: windows-64-vs2015-test
+  expansions:
+    compile_env: MSVS_VERSION=14
   tasks:
   - build-and-test-and-upload
   - build-and-test-shared-bson
 - name: windows-test
   display_name: "Windows 2016"
   run_on: windows-64-vs2017-test
+  expansions:
+    compile_env: MSVS_VERSION=15
   tasks:
   - build-and-test-and-upload
   - build-and-test-shared-bson
@@ -1078,6 +1082,6 @@ buildvariants:
   display_name: "Windows VS 2017 32-bit compile"
   run_on: windows-64-vs2017-small
   expansions:
-    compile_env: WINDOWS_32BIT=ON
+    compile_env: WINDOWS_32BIT=ON MSVS_VERSION=15
   tasks:
   - build-and-test-and-upload

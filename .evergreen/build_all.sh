@@ -23,11 +23,12 @@ build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir")
 
 # Use C driver helper script to find cmake binary, stored in $CMAKE.
 if [ "$OS_NAME" == "windows" ]; then
-    : "${CMAKE:=/cygdrive/c/cmake/bin/cmake}"
+    : "${CMAKE:="$(native_path /cygdrive/c/cmake/bin/cmake)"}"
     build_argv+=(--msvs -D CMAKE_C_COMPILER=cl -D CMAKE_CXX_COMPILER=cl)
     if [ "$WINDOWS_32BIT" = "ON" ]; then
         build_argv+=(--msvs-target-arch x86)
     fi
+    build_argv+=(--msvs-version "${MSVS_VERSION:-*}.*")
 else
     # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
     IGNORE_SYSTEM_CMAKE=1 . $CI_DIR/find-cmake.sh
