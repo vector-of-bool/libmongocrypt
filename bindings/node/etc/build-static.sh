@@ -1,8 +1,11 @@
 #!/usr/bin/env bash -x
 
+LIBMONGOCRYPT_DIR="$(pwd)/../../"
+. "$LIBMONGOCRYPT_DIR/.evergreen/init.sh"
+set +u
+
 DEPS_PREFIX="$(pwd)/deps"
 BUILD_DIR=$DEPS_PREFIX/tmp
-LIBMONGOCRYPT_DIR="$(pwd)/../../"
 TOP_DIR="$(pwd)/../../../"
 
 if [[ -z $CMAKE ]]; then
@@ -13,19 +16,23 @@ fi
 mkdir -p $BUILD_DIR/libmongocrypt-build
 pushd $BUILD_DIR/libmongocrypt-build  #./deps/tmp/libmongocrypt-build
 
-CMAKE_FLAGS="-DDISABLE_NATIVE_CRYPTO=1 -DCMAKE_INSTALL_LIBDIR=lib -DENABLE_MORE_WARNINGS_AS_ERRORS=ON"
-if [ "$OS" == "Windows_NT" ]; then
-  if [ "$WINDOWS_32BIT" != "ON" ]; then
-    WINDOWS_CMAKE_FLAGS="-Thost=x64 -A x64 -DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
-  else
-    WINDOWS_CMAKE_FLAGS="-DCMAKE_C_FLAGS_RELWITHDEBINFO=\"/MT\""
-  fi
-  $CMAKE $CMAKE_FLAGS $WINDOWS_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="`cygpath -w $DEPS_PREFIX`" -DCMAKE_INSTALL_PREFIX="`cygpath -w $DEPS_PREFIX`" "`cygpath -w $LIBMONGOCRYPT_DIR`"
-else
-  $CMAKE $CMAKE_FLAGS -DCMAKE_PREFIX_PATH=$DEPS_PREFIX -DCMAKE_INSTALL_PREFIX=$DEPS_PREFIX -DCMAKE_OSX_DEPLOYMENT_TARGET="10.12" $LIBMONGOCRYPT_DIR
+flags=(
+  -D DISABLE_NATIVE_CRYPTO=TRUE
+  -D CMAKE_INSTALL_LIBDIR=lib
+  -D ENABLE_MORE_WARNINGS_AS_ERRORS=ON
+  -D CMAKE_OSX_DEPLOYMENT_TARGET=10.12
+  -D CMAKE_PREFIX_PATH="$(native_path "$DEPS_PREFIX")"
+  --install-dir "$(native_path "$DEPS_PREFIX")"
+  --build-dir "$PWD"
+)
+
+if test "$OS" = "Windows_NT"; then
+  flags+=(
+    -D "CMAKE_C_FLAGS_RELWITHDEBINFO=-MT"
+  )
 fi
 
-$CMAKE --build . --target install --config RelWithDebInfo
+bash "$LIBMONGOCRYPT_DIR/.evergreen/build_one.sh" "${flags[@]}"
 
 popd #./
 

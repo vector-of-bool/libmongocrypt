@@ -9,7 +9,7 @@
 set +u
 
 build_dir="$(abspath "$LIBMONGOCRYPT_DIR/cmake-build")"
-build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir" "$@")
+build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir")
 
 # Use C driver helper script to find cmake binary, stored in $CMAKE.
 if [ "$OS_NAME" == "windows" ]; then
@@ -54,4 +54,4 @@ build_argv+=(
     -D CMAKE_EXPORT_COMPILE_COMMANDS=TRUE
 )
 
-bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}"
+bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}" "$@"
