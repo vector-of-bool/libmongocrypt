@@ -139,8 +139,8 @@ functions:
     - command: "shell.exec"
       params:
         script: |-
-          env ${compile_env|} CONFIGURE_ONLY=ON CC=clang CXX=clang++ \
-              bash libmongocrypt/.evergreen/build_all.sh
+          env ${compile_env|} CC=clang CXX=clang++ \
+              bash libmongocrypt/.evergreen/build_one.sh
           ./libmongocrypt/.evergreen/clang-tidy.sh
 
   "test java":
