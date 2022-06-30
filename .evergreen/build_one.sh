@@ -15,7 +15,7 @@ build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir" "$@")
 if [ "$OS_NAME" == "windows" ]; then
     : "${CMAKE:="$(native_path /cygdrive/c/cmake/bin/cmake)"}"
     build_argv+=(--msvs -D CMAKE_C_COMPILER=cl -D CMAKE_CXX_COMPILER=cl)
-    if [ "$WINDOWS_32BIT" = "ON" ]; then
+    if [ "${WINDOWS_32BIT:-}" = "ON" ]; then
         build_argv+=(--msvs-target-arch x86)
     fi
     build_argv+=(--msvs-version "${MSVS_VERSION:-*}.*")
@@ -23,16 +23,15 @@ else
     # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
     IGNORE_SYSTEM_CMAKE=1 . $CI_DIR/find-cmake.sh
     # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
-    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
     MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-    if [ "darwin" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
+    if [ "macos" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
         CMAKE=cmake
     fi
 fi
 
 export CMAKE
 
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
+if [ "${MACOS_UNIVERSAL-}" = "ON" ]; then
     # Enable macOS universal binaries
     build_argv+=(-D "CMAKE_OSX_ARCHITECTURES=arm64;x86_64")
 fi
@@ -52,11 +51,10 @@ done
 # Enable warnings as errors
 build_argv+=(-D ENABLE_MORE_WARNINGS_AS_ERRORS=ON)
 
-bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}" \
-    --install-dir "$MONGOCRYPT_INSTALL_PREFIX"
+bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}"
 
 # MONGOCRYPT-372, ensure macOS universal builds contain both x86_64 and arm64 architectures.
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
+if [ "${MACOS_UNIVERSAL-}" = "ON" ]; then
     # Check that we actually generated universal binaries
     echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures..."
     ARCHS=$(lipo -archs $MONGOCRYPT_INSTALL_PREFIX/lib/libmongocrypt.dylib)
