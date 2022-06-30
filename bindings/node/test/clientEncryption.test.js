@@ -305,6 +305,17 @@ describe('ClientEncryption', function () {
         });
     });
 
+    it('should not perform updates if no keys match', function () {
+      const clientEncryption = new ClientEncryption(client, {
+        keyVaultNamespace: 'client.encryption',
+        kmsProviders: { local: { key: 'A'.repeat(128) } }
+      });
+
+      return clientEncryption.rewrapManyDataKey({ _id: 12345 }).then(rewrapManyDataKeyResult => {
+        expect(rewrapManyDataKeyResult.bulkWriteResult).to.equal(undefined);
+      });
+    });
+
     it('should explicitly encrypt and decrypt with a re-wrapped local key (explicit session/transaction)', function () {
       const encryption = new ClientEncryption(client, {
         keyVaultNamespace: 'client.encryption',
@@ -560,7 +571,6 @@ describe('ClientEncryption', function () {
 
       const encryptOptions = {
         keyId: new Binary(Buffer.from('ABCDEFAB123498761234123456789012', 'hex'), 4),
-        indexKeyId: new Binary(Buffer.from('12345678123498761234123456789012', 'hex'), 4),
         algorithm: 'Unindexed'
       };
 
