@@ -49,7 +49,9 @@ for suffix in "dll" "dylib" "so"; do
 done
 
 # Enable warnings as errors
-build_argv+=(-D ENABLE_MORE_WARNINGS_AS_ERRORS=ON)
+build_argv+=(
+    -D ENABLE_MORE_WARNINGS_AS_ERRORS=ON
+    -D CMAKE_EXPORT_COMPILE_COMMANDS=TRUE
+)
 
 bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}"
-

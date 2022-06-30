@@ -20,4 +20,4 @@ $CLANG_TIDY --version
 
 cd libmongocrypt
 
-python ./etc/list-compile-files.py ./cmake-build/ | xargs $CLANG_TIDY -p "$LIBMONGOCRYPT_DIR/cmake-build"
+python ./etc/list-compile-files.py ./cmake-build/ | xargs $CLANG_TIDY -p ./cmake-build
