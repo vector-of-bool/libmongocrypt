@@ -28,6 +28,19 @@ fi
 bash "$CI_DIR/build_one.sh" "${build_argv[@]}" \
     --install-dir "$MONGOCRYPT_INSTALL_PREFIX"
 
+# MONGOCRYPT-372, ensure macOS universal builds contain both x86_64 and arm64 architectures.
+if [ "${MACOS_UNIVERSAL-}" = "ON" ]; then
+    # Check that we actually generated universal binaries
+    echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures..."
+    ARCHS=$(lipo -archs $MONGOCRYPT_INSTALL_PREFIX/lib/libmongocrypt.dylib)
+    if [[ "$ARCHS" == *"x86_64"* && "$ARCHS" == *"arm64"* ]]; then
+        echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures... OK"
+    else
+        echo "Checking if libmongocrypt.dylib contains both x86_64 and arm64 architectures... ERROR. Got: $ARCHS"
+        exit 1
+    fi
+fi
+
 if [ "$PPA_BUILD_ONLY" ]; then
     echo "Only building/installing for PPA";
     exit 0;
