@@ -100,7 +100,15 @@ else
     if have_command ninja || have_command ninja-build; then
         cmake_argv+=(-GNinja)
     else
-        export MAKEFLAGS="-j8 ${MAKEFLAGS:-}"
+        if test -f /proc/cpuinfo; then
+            jobs="$(grep -c '^processor' /proc/cpuinfo)"
+            if have_command bc; then
+                jobs="$(echo "$jobs+2" | bc)"
+            fi
+            export MAKEFLAGS="-j$jobs ${MAKEFLAGS-}"
+        else
+            export MAKEFLAGS="-j8 ${MAKEFLAGS-}"
+        fi
     fi
     $cmake -DCMAKE_BUILD_TYPE="$config" \
            -DCMAKE_INSTALL_PREFIX="$install_dir" \
