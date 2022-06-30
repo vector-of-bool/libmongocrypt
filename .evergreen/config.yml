@@ -69,7 +69,6 @@ functions:
           set -o errexit
           set -o xtrace
           ${compile_env|} ./libmongocrypt/.evergreen/build_all.sh
-          ${test_env|} ./libmongocrypt/.evergreen/test.sh
           cd libmongocrypt
           ./.evergreen/linker-tests.sh
           ./.evergreen/pkgconfig-tests.sh
@@ -274,7 +273,6 @@ functions:
         script: |-
           set -e
           ${compile_env|} ./libmongocrypt/.evergreen/build_one.sh
-          ${test_env|} ./libmongocrypt/.evergreen/test.sh
           ${compile_env|} ./libmongocrypt/.evergreen/compile_cs.sh
 
 tasks:

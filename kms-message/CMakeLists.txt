@@ -252,6 +252,12 @@ if (NOT DISABLE_NATIVE_CRYPTO)
    target_include_directories(test_kms_request PRIVATE ${PROJECT_SOURCE_DIR}/src)
    target_compile_definitions(test_kms_request PRIVATE ${KMS_MESSAGE_DEFINITIONS})
 
+   add_test (
+      NAME test_kms_request
+      COMMAND test_kms_request
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+   )
+
    if (WIN32)
       target_link_libraries(test_kms_request "bcrypt" "crypt32")
    elseif (APPLE)
