@@ -81,16 +81,14 @@ function have_command() {
 # Run a command in a different directory:
 # * run_chdir <dir> [command ...]
 function run_chdir() {
-    test "$#" -gt 2 || fail "run_chdir expects at least two arguments"
+    test "$#" -gt 1 || fail "run_chdir expects at least two arguments"
     local _dir="$1"
     shift
-    pushd "$_dir"
+    pushd "$_dir" > /dev/null
     debug "Run in directory [$_dir]: $@"
-    set +e
     command "$@"
     local _rc=$?
-    set -e
-    popd
+    popd > /dev/null
     return $_rc
 }
 

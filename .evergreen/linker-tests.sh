@@ -28,16 +28,13 @@ mkdir -p -- "$linker_tests_root"
 # Clone mongo-c-driver for libbson
 patched_mongoc_dir="$(native_path "$linker_tests_root/mongo-c-driver")"
 rm -rf "$patched_mongoc_dir"
-pushd "$linker_tests_root"
-    # Clones mongoc into the $patched_mongoc_dir
-    "$CI_DIR/prep_c_driver_source.sh"
-popd
+# Clones mongoc into the $patched_mongoc_dir:
+run_chdir "$linker_tests_root" "$CI_DIR/prep_c_driver_source.sh"
 mongoc_build_dir="$patched_mongoc_dir/_build"
 
 # Patch and build libbson1
-pushd "$patched_mongoc_dir"
+run_chdir "$patched_mongoc_dir" \
     git apply --ignore-whitespace "$(native_path $linker_tests_deps_root/bson_patches/libbson1.patch)"
-popd
 bash "$CI_DIR/build_one.sh" \
     --source-dir "$patched_mongoc_dir" \
     --install-dir "$install_dir" \
@@ -46,10 +43,8 @@ bash "$CI_DIR/build_one.sh" \
 
 # Re-patch to libbson2
 # (No need to build. We can inject it directly into the next libmongocrypt build.)
-pushd "$patched_mongoc_dir"
-    git reset --hard
-    git apply --ignore-whitespace "$(native_path $linker_tests_deps_root/bson_patches/libbson2.patch)"
-popd
+run_chdir "$patched_mongoc_dir" git reset --hard
+run_chdir "$patched_mongoc_dir" git apply --ignore-whitespace "$(native_path $linker_tests_deps_root/bson_patches/libbson2.patch)"
 
 # Build and install libmongocrypt, static linking against the patched libbson2
 bash "$CI_DIR/build_one.sh" \
