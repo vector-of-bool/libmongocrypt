@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+LIBMONGOCRYPT_DIR="$(pwd)/../../"
+. "$LIBMONGOCRYPT_DIR/.evergreen/init.sh"
+set +u
+
 set -o xtrace   # Write all commands first to stderr
 set -o errexit  # Exit the script with error if any of the commands fail
 
@@ -22,13 +26,13 @@ export PATH="$BIN_DIR:/opt/mongodbtoolchain/v2/bin:$PATH"
 
 # locate cmake
 if [ "$OS" == "Windows_NT" ]; then
-  CMAKE=/cygdrive/c/cmake/bin/cmake
+  : "${CMAKE:=/cygdrive/c/cmake/bin/cmake}"
   if [ "$WINDOWS_32BIT" != "ON" ]; then
       ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
   fi
 else
-  chmod u+x ./.evergreen/find_cmake.sh
-  IGNORE_SYSTEM_CMAKE=1 . ./.evergreen/find_cmake.sh
+  chmod u+x "$LIBMONGOCRYPT_DIR/.evergreen/find-cmake.sh"
+  IGNORE_SYSTEM_CMAKE=1 . "$LIBMONGOCRYPT_DIR/.evergreen/find-cmake.sh"
 fi
 
 # this needs to be explicitly exported for the nvm install below
