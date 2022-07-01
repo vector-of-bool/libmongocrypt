@@ -66,13 +66,13 @@ bash "$CI_DIR/build_one.sh" \
     --no-test \
     -D CMAKE_PREFIX_PATH="$install_dir"
 
-if [ "$OS" == "Windows_NT" ]; then
+if [ "$OS_NAME" == "windows" ]; then
     export PATH="$PATH:$install_dir/bin"
 fi
 APP_CMD="$app_build_dir/app"
 
 check_output () {
-    output="$($APP_CMD)"
+    output="$("$APP_CMD")"
     if [[ "$output" != *"$1"* ]]; then
         printf "     Got: %s\nExpected: %s\n" "$output" "$1"
         exit 1;
