@@ -126,7 +126,7 @@ else
         fi
     fi
     $cmake -DCMAKE_BUILD_TYPE="$config" \
-           -DCMAKE_INSTALL_PREFIX="$install_dir" \
+           -DCMAKE_INSTALL_PREFIX="${install_dir-}" \
            "${cmake_argv[@]}" \
            "-B$build_dir" \
            "-H$source_dir"
