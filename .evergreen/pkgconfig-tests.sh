@@ -1,135 +1,109 @@
 #!/bin/bash
-set -o xtrace
-set -o errexit
 
-system_path () {
-    if [ "$OS" == "Windows_NT" ]; then
-        cygpath -a "$1" -w
-    else
-        echo $1
-    fi
-}
+set -e
+. "$(dirname "${BASH_SOURCE[0]}")/init.sh"
 
-if [ ! -e ./.evergreen ]; then
-    echo "Error: run from libmongocrypt root"
-    exit 1;
-fi
+set -x
 
-if [ ! $(command -v pkg-config) ]; then
+if ! have_command pkg-config; then
     echo "pkg-config not present on this platform; skipping test ..."
     exit 0
 fi
 
-libmongocrypt_root=$(pwd)
-pkgconfig_tests_root=${libmongocrypt_root}/pkgconfig_tests
+pkgconfig_tests_root="$LIBMONGOCRYPT_DIR/cmake-build/pkgconfig_tests"
 
-rm -rf pkgconfig_tests
-mkdir -p pkgconfig_tests/{install,libmongocrypt-cmake-build}
-cd pkgconfig_tests
+rm -rf "$pkgconfig_tests_root"
+mkdir -p "$pkgconfig_tests_root"
 
-$libmongocrypt_root/.evergreen/prep_c_driver_source.sh
-cd mongo-c-driver
-
-# Use C driver helper script to find cmake binary, stored in $CMAKE.
-if [ "$OS" == "Windows_NT" ]; then
-    CMAKE=/cygdrive/c/cmake/bin/cmake
-    if [ "$WINDOWS_32BIT" != "ON" ]; then
-        ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
-    fi
-else
-    # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-    IGNORE_SYSTEM_CMAKE=1 . "$libmongocrypt_root/.evergreen/find-cmake.sh"
-    # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
-    OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
-    MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-    if [ "darwin" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
-        CMAKE=cmake
-    fi
-fi
-
-if [ "$MACOS_UNIVERSAL" = "ON" ]; then
-    ADDITIONAL_CMAKE_FLAGS="$ADDITIONAL_CMAKE_FLAGS -DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"
-fi
-
-mkdir cmake-build
-cd cmake-build
-INSTALL_PATH="$(system_path $pkgconfig_tests_root/install)"
-SRC_PATH="$(system_path ../)"
-$CMAKE -DENABLE_MONGOC=OFF -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
+# Build and install a version of libbson for testing
+mongoc_dir="$pkgconfig_tests_root/mongo-c-driver"
+run_chdir "$pkgconfig_tests_root" "$EVG_DIR/prep_c_driver_source.sh"
+bson_install_dir="$pkgconfig_tests_root/bson-install"
+bash "$EVG_DIR/build_one.sh" \
+    --source-dir "$mongoc_dir" \
+    --install-dir "$bson_install_dir" \
+    --no-test \
+    -D BUILD_TESTING=OFF \
+    -D ENABLE_MONGOC=OFF
 
 # Build libmongocrypt, static linking against libbson and configured for the PPA
-cd $pkgconfig_tests_root/libmongocrypt-cmake-build
-PREFIX_PATH="$(system_path $pkgconfig_tests_root/install)"
-INSTALL_PATH="$(system_path $pkgconfig_tests_root/install/libmongocrypt)"
-SRC_PATH="$(system_path $libmongocrypt_root)"
-$CMAKE -DUSE_SHARED_LIBBSON=OFF -DENABLE_BUILD_FOR_PPA=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
-find ${PREFIX_PATH} -name libbson-static-1.0.a -execdir cp {} $(dirname $(find ${INSTALL_PATH} -name libmongocrypt-static.a )) \;
+mc_build_dir="$pkgconfig_tests_root/mc-cmake-build"
+mc_install_dir="$pkgconfig_tests_root/mc-install"
+bash "$EVG_DIR/build_one.sh" \
+    --source-dir "$LIBMONGOCRYPT_DIR" \
+    --build-dir "$mc_build_dir" \
+    --install-dir "$mc_install_dir" \
+    -D ENABLE_BUILD_FOR_PPA=ON \
+    -D USE_SHARED_LIBBSON=OFF \
+    -D CMAKE_PREFIX_PATH="$bson_install_dir"
 
-# To validate the pkg-config scripts, we don't want the libbson script to be visible
-export PKG_CONFIG_PATH="$(system_path $(/usr/bin/dirname $(/usr/bin/find $pkgconfig_tests_root/install/libmongocrypt -name libmongocrypt.pc)))"
+# Find the directory that holds the libmongocrypt.pc file:
+mc_pc_dir="$(dirname "$(find "$mc_install_dir" -name libmongocrypt.pc)")"
+# Find the directory that contains the libbson pc file:
+bson_pc_dir="$(dirname "$(find "$bson_install_dir" -name libbson-1.0.pc)")"
 
+# Generate a library path for dynamic library lookup for our installed builds:
+paths=({"$mc_install_dir","$bson_install_dir"}/{lib,lib64})
+ld_lib_path="LD_LIBRARY_PATH=$(join_str ':' "${paths[@]}")"
+
+# To validate the pkg-config scripts, we don't want the libbson scripts to be always visible, so we installed
+# the components in diferent directories
 echo "Validating pkg-config scripts"
+export PKG_CONFIG_PATH
+# Only libmongocrypt is visible:
+PKG_CONFIG_PATH="$mc_pc_dir"
+# Check that they resolve, even though libbson isn't visible (because libbson
+# should not be a public requirement of the prior build)
 pkg-config --debug --print-errors --exists libmongocrypt-static
 pkg-config --debug --print-errors --exists libmongocrypt
 
-export PKG_CONFIG_PATH="$(system_path $(/usr/bin/dirname $(/usr/bin/find $pkgconfig_tests_root/install -name libbson-1.0.pc))):$(system_path $(/usr/bin/dirname $(/usr/bin/find $pkgconfig_tests_root/install/libmongocrypt -name libmongocrypt.pc)))"
+# Make both visible simultaneously:
+PKG_CONFIG_PATH="$mc_pc_dir:$bson_pc_dir"
 
-# Build example-state-machine, static linking against libmongocrypt
-cd $libmongocrypt_root
-gcc $(pkg-config --cflags libmongocrypt-static libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt-static)
-./example-state-machine
-# Build example-no-bson, static linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt-static) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt-static)
-./example-no-bson
+# Attempt to build the libmongocrypt examples with out installed libraries:
+pushd $LIBMONGOCRYPT_DIR
+    # Build example-state-machine, static linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt-static libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt-static)
+    ./example-state-machine
+    # Build example-no-bson, static linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt-static) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt-static)
+    ./example-no-bson
+    rm -f example-state-machine example-no-bson
 
-rm -f example-state-machine example-no-bson
+    # Build example-state-machine, dynamic linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt)
+    # Build example-no-bson, dynamic linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt)
+    env "$ld_lib_path" ./example-state-machine
+    env "$ld_lib_path" ./example-no-bson
+    rm -f example-state-machine example-no-bson
+popd
 
-# Build example-state-machine, dynamic linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt)
-# Build example-no-bson, dynamic linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt)
-export LD_LIBRARY_PATH="$(system_path $pkgconfig_tests_root/install/libmongocrypt/lib):$(system_path $pkgconfig_tests_root/install/libmongocrypt/lib64)"
-./example-state-machine
-./example-no-bson
-unset LD_LIBRARY_PATH
+# Build libmongocrypt, this time dynamic linking agianst libbson, not for the PPA
+bash "$EVG_DIR/build_one.sh" \
+    --source-dir "$LIBMONGOCRYPT_DIR" \
+    --build-dir "$mc_build_dir" \
+    --install-dir "$mc_install_dir" \
+    -D ENABLE_BUILD_FOR_PPA=OFF \
+    -D USE_SHARED_LIBBSON=ON \
+    -D CMAKE_PREFIX_PATH="$bson_install_dir"
 
-rm -f example-state-machine example-no-bson
+# Again, attempt to build the libmongocrypt examples with out installed libraries:
+pushd $LIBMONGOCRYPT_DIR
+    gcc $(pkg-config --cflags libmongocrypt-static libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt-static)
+    # Build example-no-bson, static linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt-static) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt-static)
+    env "$ld_lib_path" ./example-state-machine
+    env "$ld_lib_path" ./example-no-bson
+    rm -f example-state-machine example-no-bson
 
-# Clean up prior to next execution
-cd $pkgconfig_tests_root
-rm -rf libmongocrypt-cmake-build install/libmongocrypt
-mkdir -p libmongocrypt-cmake-build
+    # Build example-state-machine, dynamic linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt)
+    # Build example-no-bson, dynamic linking against libmongocrypt
+    gcc $(pkg-config --cflags libmongocrypt) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt)
+    env "$ld_lib_path" ./example-state-machine
+    env "$ld_lib_path" ./example-no-bson
+    rm -f example-state-machine example-no-bson
+popd
 
-# Build libmongocrypt, dynamic linking against libbson
-cd $pkgconfig_tests_root/libmongocrypt-cmake-build
-PREFIX_PATH="$(system_path $pkgconfig_tests_root/install)"
-INSTALL_PATH="$(system_path $pkgconfig_tests_root/install/libmongocrypt)"
-SRC_PATH="$(system_path $libmongocrypt_root)"
-$CMAKE -DUSE_SHARED_LIBBSON=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
-$CMAKE --build . --target install --config RelWithDebInfo
-
-# Build example-state-machine, static linking against libmongocrypt
-cd $libmongocrypt_root
-gcc $(pkg-config --cflags libmongocrypt-static libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt-static)
-# Build example-no-bson, static linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt-static) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt-static)
-export LD_LIBRARY_PATH="$(system_path $pkgconfig_tests_root/install/lib):$(system_path $pkgconfig_tests_root/install/lib64)"
-./example-state-machine
-./example-no-bson
-unset LD_LIBRARY_PATH
-
-rm -f example-state-machine example-no-bson
-
-# Build example-state-machine, dynamic linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt libbson-static-1.0) -o example-state-machine test/example-state-machine.c $(pkg-config --libs libmongocrypt)
-# Build example-no-bson, dynamic linking against libmongocrypt
-gcc $(pkg-config --cflags libmongocrypt) -o example-no-bson test/example-no-bson.c $(pkg-config --libs libmongocrypt)
-export LD_LIBRARY_PATH="$(system_path $pkgconfig_tests_root/install/lib):$(system_path $pkgconfig_tests_root/install/lib64):$(system_path $pkgconfig_tests_root/install/libmongocrypt/lib):$(system_path $pkgconfig_tests_root/install/libmongocrypt/lib64)"
-./example-state-machine
-./example-no-bson
-unset LD_LIBRARY_PATH
-
-rm -f example-state-machine example-no-bson
 
