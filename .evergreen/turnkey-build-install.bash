@@ -135,7 +135,7 @@ else
         env CTEST_OUTPUT_ON_FAILURE=1 \
             $cmake --build "$build_dir" --config "$config" --target test
     fi
-    if test -z "${install_dir-}"; then
+    if ! test -z "${install_dir-}"; then
         $cmake -D CMAKE_INSTALL_CONFIG_NAME="$config" -P "$build_dir/cmake_install.cmake"
     fi
 fi
