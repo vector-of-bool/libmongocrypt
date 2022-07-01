@@ -15,12 +15,17 @@ param (
     [string]
     $Config = "RelWithDebInfo",
     # The directory in which to write the installation resutl
-    [Parameter(Mandatory)]
     [string]
     $InstallDir,
     # The directory in which to store the build files
     [string]
     $BuildDir,
+    # The source directory to build
+    [string]
+    $SourceDir,
+    # Skip running tests
+    [switch]
+    $SkipTests,
     # Additional settings to pass to CMake
     [string[]]
     $Settings
@@ -29,31 +34,24 @@ param (
 $ErrorActionPreference = "stop"
 
 $evg_dir = $PSScriptRoot
-$libmongocrypt_dir = Split-Path -Parent $evg_dir
 
-if ([string]::IsNullOrEmpty($BuildDir)) {
-    $BuildDir = Join-Path $libmongocrypt_dir "_build"
-}
+& $evg_dir/get-ninja.ps1 -DestDir $evg_dir -Version 1.11.0 | Out-Null
 
-$BuildDir = [IO.Path]::GetFullPath($BuildDir)
-
-[void](New-Item $BuildDir -ItemType Directory -Force)
-& $evg_dir/get-ninja.ps1 -DestDir $BuildDir -Version 1.11.0 | Out-Null
-
-$ninja_bin = Join-Path $BuildDir "ninja"
+$ninja_bin = Join-Path $evg_dir "ninja"
 
 $vs_env_run = Join-Path $evg_dir "vs-env-run.ps1"
 $ci_ps1 = Join-Path $evg_dir "ci.ps1"
 
 Write-Host "Run script [$vs_env_run]"
-$PSVersionTable | Format-Table | Out-Host
 
 & $vs_env_run -Version:$VSVersion -Target:$TargetArch -Command {
     $more_settings = @($Settings)
     $more_settings += "CMAKE_MAKE_PROGRAM=$ninja_bin"
     & $ci_ps1 -Generator Ninja `
         -Config:$Config `
+        -SourceDir:$SourceDir `
         -BuildDir:$BuildDir `
         -Settings:$more_settings `
-        -InstallDir:$InstallDir
+        -InstallDir:$InstallDir `
+        -SkipTests:$SkipTests
 }

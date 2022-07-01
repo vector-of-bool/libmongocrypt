@@ -28,6 +28,9 @@ param (
     # Set the CMake platform with -A
     [string]
     $Platform,
+    # The source directory to build
+    [string]
+    $SourceDir,
     # The directory in which to write the build files
     [string]
     $BuildDir,
@@ -60,17 +63,20 @@ Write-Host "Using CMake executable [$cmake_exe]"
 # The .evergreen directory
 $evg_dir = $PSScriptRoot
 
-$libmongocrypt_dir = Split-Path -Parent $evg_dir
+if ([string]::IsNullOrEmpty($SourceDir)) {
+    $SourceDir = Split-Path -Parent $evg_dir
+}
+$SourceDir = [IO.Path]::GetFullPath($SourceDir)
 
 if ([string]::IsNullOrEmpty($BuildDir)) {
-    $BuildDir = Join-Path $libmongocrypt_dir "_build"
+    $BuildDir = Join-Path $SourceDir "_build"
 }
 $BuildDir = [IO.Path]::GetFullPath($BuildDir)
 Write-Debug "Using build directory [$BuildDir]"
 
 # Build up the CMake command
 $argv = @(
-    "-H$libmongocrypt_dir",
+    "-H$SourceDir",
     "-B$BuildDir",
     "-DCMAKE_BUILD_TYPE:STRING=$config"
 )
@@ -103,13 +109,13 @@ if ($Clean) {
     Remove-Item (Join-Path $BuildDir "CMakeFiles") -Recurse -ErrorAction Ignore
 }
 
-Write-Host "Configuring $Config in $BuildDir"
+Write-Host "Configuring [$SourceDir] as $Config in $BuildDir"
 & $cmake_exe @argv
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed [$LASTEXITCODE]"
 }
 
-Write-Host "Building $Config in [$BuildDir]"
+Write-Host "Building [$SourceDir] as $Config in [$BuildDir]"
 & $cmake_exe --build $BuildDir --config $Config
 if ($LASTEXITCODE -ne 0) {
     throw "CMake build failed [$LASTEXITCODE]"

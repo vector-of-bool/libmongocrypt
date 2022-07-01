@@ -12,11 +12,6 @@
 
 # EVERGREEN_DIR = The evergreen workspace directory.
 #       Default is the parent of LIBMONGOCRYPT_DIR
-# LIBMONGOCRYPT_BUILD_ROOT = Prefix for all build results of libmongocrypt.
-#       Further subdirectories will be created for different build variants.
-#       Default is ${LIBMONGOCRYPT_DIR}/_build
-# LIBMONGOCRYPT_INSTALL_ROOT = Scratch directory where libmongocrypt variants
-#       will be installed. Default is ${LIBMONGOCRYPT_DIR}/_install
 
 ## (All of the above directory paths are absolute paths)
 
@@ -199,5 +194,3 @@ CI_DIR="$(native_path "${_init_sh_ci_dir}")"
 LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
 
 : "${EVERGREEN_DIR:="$(native_path "$(dirname "${LIBMONGOCRYPT_DIR}")")"}"
-: "${LIBMONGOCRYPT_BUILD_ROOT:="${LIBMONGOCRYPT_DIR}/_build"}"
-: "${LIBMONGOCRYPT_INSTALL_ROOT:="${LIBMONGOCRYPT_DIR}/_install"}"

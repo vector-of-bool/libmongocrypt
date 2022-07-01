@@ -8,8 +8,7 @@
 
 set +u
 
-build_dir="$(abspath "$LIBMONGOCRYPT_DIR/cmake-build")"
-build_argv=(--config "RelWithDebInfo" --build-dir "$build_dir")
+build_argv=(--config "RelWithDebInfo")
 
 # Use C driver helper script to find cmake binary, stored in $CMAKE.
 if [ "$OS_NAME" == "windows" ]; then

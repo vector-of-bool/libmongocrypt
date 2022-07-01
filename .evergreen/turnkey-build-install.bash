@@ -29,8 +29,15 @@ set -euo pipefail
 cmake_settings=("_unused=_")
 cmake_argv=("-D_unused=1")
 
+no_test=false
+
 while (($# > 0)); do
     case "$1" in
+    --source-dir)
+        shift
+        source_dir="$1"
+        shift
+        ;;
     --build-dir)
         shift
         build_dir="$1"
@@ -43,7 +50,11 @@ while (($# > 0)); do
         ;;
     --install-dir)
         shift
-        install_dir="$1"
+        install_dir="$(native_path "$1")"
+        shift
+        ;;
+    --no-test)
+        no_test="true"
         shift
         ;;
     --msvs)
@@ -73,9 +84,9 @@ while (($# > 0)); do
 done
 
 # Defaults:
-build_dir="${build_dir:-"$LIBMONGOCRYPT_BUILD_ROOT"}"
+source_dir="${source_dir:-"$LIBMONGOCRYPT_DIR"}"
+build_dir="${build_dir:-"$source_dir/_build"}"
 config="${config:-RelWithDebInfo}"
-install_dir="${install_dir:-"$LIBMONGOCRYPT_INSTALL_ROOT"}"
 
 cmake="${CMAKE:-cmake}"
 
@@ -88,13 +99,17 @@ if test "$OS_NAME" = "windows" && "${msvs:-${LOAD_VS_ENV:-false}}"; then
     # We're going to do something more fancy for msvs+Windows, and PowerShell is more suitable.
     # PowerShell concatenates everything after -Command as if it were typed on the CLI.
     # This might break for tricky command line arguments, but is stable for our purposes.
+    install_dir="${install_dir:-"''"}"  # (We need a special string to indicate 'empty' (PowerShell bug))
+    set -x
     powershell -NoLogo -NonInteractive -NoProfile -ExecutionPolicy Unrestricted \
         -Command "$CI_DIR/quick-build-msvc.ps1" \
-            -Config "$config" \
-            -BuildDir "$build_dir" \
+            -SourceDir "$(native_path "$source_dir")" \
+            -BuildDir "$(native_path "$build_dir")" \
             -InstallDir "$install_dir" \
-            -TargetArch "${arch:-amd64}" \
+            -Config "$config" \
             -VSVersion "${vs_version:-*}" \
+            -TargetArch "${arch:-amd64}" \
+            -SkipTests:"\$$no_test" \
             -Settings "$(join_str ", " "${cmake_settings[@]}")"
 else
     if have_command ninja || have_command ninja-build; then
@@ -114,9 +129,13 @@ else
            -DCMAKE_INSTALL_PREFIX="$install_dir" \
            "${cmake_argv[@]}" \
            "-B$build_dir" \
-           "-H$LIBMONGOCRYPT_DIR"
+           "-H$source_dir"
     $cmake --build "$build_dir" --config "$config"
-    env CTEST_OUTPUT_ON_FAILURE=1 \
-        $cmake --build "$build_dir" --config "$config" --target test
-    $cmake -D CMAKE_INSTALL_CONFIG_NAME="$config" -P "$build_dir/cmake_install.cmake"
+    if ! $no_test; then
+        env CTEST_OUTPUT_ON_FAILURE=1 \
+            $cmake --build "$build_dir" --config "$config" --target test
+    fi
+    if test -z "${install_dir-}"; then
+        $cmake -D CMAKE_INSTALL_CONFIG_NAME="$config" -P "$build_dir/cmake_install.cmake"
+    fi
 fi
