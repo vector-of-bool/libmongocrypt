@@ -65,7 +65,6 @@ INSTALL_PATH="$(system_path $pkgconfig_tests_root/install/libmongocrypt)"
 SRC_PATH="$(system_path $libmongocrypt_root)"
 $CMAKE -DUSE_SHARED_LIBBSON=OFF -DENABLE_BUILD_FOR_PPA=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo $ADDITIONAL_CMAKE_FLAGS -DCMAKE_PREFIX_PATH="$PREFIX_PATH" -DCMAKE_INSTALL_PREFIX="$INSTALL_PATH" "$SRC_PATH"
 $CMAKE --build . --target install --config RelWithDebInfo
-find ${PREFIX_PATH} -name libbson-static-1.0.a -execdir cp {} $(dirname $(find ${INSTALL_PATH} -name libmongocrypt-static.a )) \;
 
 # To validate the pkg-config scripts, we don't want the libbson script to be visible
 export PKG_CONFIG_PATH="$(system_path $(/usr/bin/dirname $(/usr/bin/find $pkgconfig_tests_root/install/libmongocrypt -name libmongocrypt.pc)))"
