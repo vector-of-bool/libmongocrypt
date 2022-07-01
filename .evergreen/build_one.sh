@@ -20,7 +20,7 @@ if [ "$OS_NAME" == "windows" ]; then
     build_argv+=(--msvs-version "${MSVS_VERSION:-*}.*")
 else
     # Amazon Linux 2 (arm64) has a very old system CMake we want to ignore
-    IGNORE_SYSTEM_CMAKE=1 . $CI_DIR/find-cmake.sh
+    IGNORE_SYSTEM_CMAKE=1 . $EVG_DIR/find-cmake.sh
     # Check if on macOS with arm64. Use system cmake. See BUILD-14565.
     MARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
     if [ "macos" = "$OS_NAME" -a "arm64" = "$MARCH" ]; then
@@ -53,4 +53,4 @@ build_argv+=(
     -D CMAKE_EXPORT_COMPILE_COMMANDS=TRUE
 )
 
-bash "$CI_DIR/turnkey-build-install.bash" "${build_argv[@]}" "$@"
+bash "$EVG_DIR/turnkey-build-install.bash" "${build_argv[@]}" "$@"

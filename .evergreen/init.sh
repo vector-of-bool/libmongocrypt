@@ -4,16 +4,11 @@
 
 ## Variables set by this file:
 
-# CI_DIR = The path to the directory containing this script file
+# EVG_DIR = The path to the directory containing this script file
 # LIBMONGOCRYPT_DIR = The path to the libmongocrypt source directory
 # OS_NAME = One of 'windows', 'linux', 'macos', or 'unknown'
 
-## Variables set by this file that may be overridden:
-
-# EVERGREEN_DIR = The evergreen workspace directory.
-#       Default is the parent of LIBMONGOCRYPT_DIR
-
-## (All of the above directory paths are absolute paths)
+## (All of the above directory paths are native absolute paths)
 
 ## This script defines the following commands:
 
@@ -184,11 +179,9 @@ function join_str() {
 OS_NAME="$(os_name)"
 
 _init_sh_this_file="$(abspath "${BASH_SOURCE[0]}")"
-_init_sh_ci_dir="$(dirname "${_init_sh_this_file}")"
+_init_sh_evg_dir="$(dirname "${_init_sh_this_file}")"
 
-# Get the CI dir as a native absolute path. All other path vars are derived from
+# Get the EVG dir as a native absolute path. All other path vars are derived from
 # this one, and will therefore remain as native paths
-CI_DIR="$(native_path "${_init_sh_ci_dir}")"
-LIBMONGOCRYPT_DIR="$(dirname "${CI_DIR}")"
-
-: "${EVERGREEN_DIR:="$(native_path "$(dirname "${LIBMONGOCRYPT_DIR}")")"}"
+EVG_DIR="$(native_path "${_init_sh_evg_dir}")"
+LIBMONGOCRYPT_DIR="$(dirname "${EVG_DIR}")"

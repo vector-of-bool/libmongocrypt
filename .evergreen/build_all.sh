@@ -13,7 +13,7 @@ set +u
 
 echo "Begin compile process"
 
-. "$CI_DIR/setup-env.sh"
+. "$EVG_DIR/setup-env.sh"
 
 build_dir="$(abspath "$LIBMONGOCRYPT_DIR/cmake-build")"
 
@@ -25,7 +25,7 @@ if [ "$PPA_BUILD_ONLY" ]; then
     build_argv+=(-D ENABLE_BUILD_FOR_PPA=ON)
 fi
 
-bash "$CI_DIR/build_one.sh" "${build_argv[@]}" \
+bash "$EVG_DIR/build_one.sh" "${build_argv[@]}" \
     --install-dir "$MONGOCRYPT_INSTALL_PREFIX"
 
 # MONGOCRYPT-372, ensure macOS universal builds contain both x86_64 and arm64 architectures.
@@ -47,12 +47,12 @@ if [ "$PPA_BUILD_ONLY" ]; then
 fi
 
 # Build and install libmongocrypt without statically linking libbson
-bash "$CI_DIR/build_one.sh" "${build_argv[@]}" \
+bash "$EVG_DIR/build_one.sh" "${build_argv[@]}" \
     --install-dir "$MONGOCRYPT_INSTALL_PREFIX/sharedbson" \
     -D USE_SHARED_LIBBSON=ON
 
 # Build and install libmongocrypt with no native crypto.
-bash "$CI_DIR/build_one.sh" "${build_argv[@]}" \
+bash "$EVG_DIR/build_one.sh" "${build_argv[@]}" \
     --install-dir "$MONGOCRYPT_INSTALL_PREFIX/nocrypto" \
     -D USE_SHARED_LIBBSON=OFF \
     -D DISABLE_NATIVE_CRYPTO=ON

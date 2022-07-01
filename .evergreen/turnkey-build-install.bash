@@ -106,7 +106,7 @@ if test "$OS_NAME" = "windows" && "${msvs:-${LOAD_VS_ENV:-false}}"; then
     install_dir="${install_dir:-"''"}"  # (We need a special string to indicate 'empty' (PowerShell bug))
     set -x
     powershell -NoLogo -NonInteractive -NoProfile -ExecutionPolicy Unrestricted \
-        -Command "$CI_DIR/quick-build-msvc.ps1" \
+        -Command "$EVG_DIR/quick-build-msvc.ps1" \
             -SourceDir "$(native_path "$source_dir")" \
             -BuildDir "$(native_path "$build_dir")" \
             -InstallDir "$install_dir" \
