@@ -4,10 +4,14 @@
 # Usage:
 #
 #   turnkey-build-install.bash
+#       [--source-dir <dirpath>]
+#           Set the path to the source directory to build. Default is $LIBMONGOCRYPT_DIR
 #       [--build-dir <dirpath>]
-#           Set the path for ephemeral build results. Default is '_build/'
+#           Set the path for ephemeral build results. Default is '$source_dir/cmake-build/'
 #       [--install-dir <dirpath>]
-#           Set the install prefix. Default is '_install/'
+#           Set the install prefix. Default is none (no install will be performed).
+#       [-no-test]
+#           Do not run CTest.
 #       [--config {RelWithDebInfo,Debug,Release}]
 #           Set the CMake configuration to build. Default is 'RelWithDebInfo'
 #       [--msvs]
@@ -85,7 +89,7 @@ done
 
 # Defaults:
 source_dir="${source_dir:-"$LIBMONGOCRYPT_DIR"}"
-build_dir="${build_dir:-"$source_dir/_build"}"
+build_dir="${build_dir:-"$source_dir/cmake-build"}"
 config="${config:-RelWithDebInfo}"
 
 cmake="${CMAKE:-cmake}"

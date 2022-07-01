@@ -16,7 +16,7 @@
 #   installed/
 #
 
-linker_tests_root="$LIBMONGOCRYPT_DIR/_build/linker_tests"
+linker_tests_root="$LIBMONGOCRYPT_DIR/cmake-build/linker_tests"
 linker_tests_deps_root="$CI_DIR/linker_tests_deps"
 
 # Directory where temporary build results will be installed for use in subsequent steps
