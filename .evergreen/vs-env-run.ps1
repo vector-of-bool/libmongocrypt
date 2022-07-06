@@ -72,6 +72,9 @@ param (
     [ValidateSet("Desktop", "UWP", IgnoreCase = $false)]
     [string]
     $AppPlatform = "Desktop",
+    # The directory to store ephemeral files
+    [string]
+    $ScratchDir,
 
     # The command to execute within the VS environment. May be any invocable object.
     [Parameter(Mandatory, Position = 1)]
@@ -81,7 +84,13 @@ param (
 $ErrorActionPreference = 'Stop'
 
 $this_dir = $PSScriptRoot
-$vswhere = Join-Path $this_dir "vswhere.exe"
+
+if ([string]::IsNullOrEmpty($ScratchDir)) {
+    $ScratchDir = Join-Path (Split-Path -Parent $this_dir) "_build"
+}
+
+New-Item $ScratchDir -ItemType Directory -ErrorAction Ignore
+$vswhere = Join-Path $ScratchDir "vswhere.exe"
 
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11'
@@ -95,8 +104,7 @@ $vswhere_json = & $vswhere -utf8 -nologo -format json -all -legacy -prerelease -
 $vs_versions = $vswhere_json | ConvertFrom-Json
 
 # Pick the produce that matches the pattern
-$selected = @($vs_versions `
-    | Where-Object { $_.installationVersion -like $Version })
+$selected = @($vs_versions | Where-Object { $_.installationVersion -like $Version })
 
 if ($selected.Length -eq 0) {
     throw "No Visual Studio was found with a version matching '$Version'"
@@ -151,10 +159,10 @@ else {
 }
 
 # Write the script and then execute it, capturing its output
-Set-Content .env.bat $env_script_content
+Set-Content "$ScratchDir/.env.bat" $env_script_content
 
 Write-Host "Loading VS environment..."
-$output = & cmd.exe /c .env.bat
+$output = & cmd.exe /c "$ScratchDir/.env.bat"
 if ($LASTEXITCODE -ne 0) {
     throw "Loading the environment failed [$LASTEXITCODE]:`n$output"
 }

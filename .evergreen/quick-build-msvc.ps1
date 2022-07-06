@@ -35,9 +35,9 @@ $ErrorActionPreference = "stop"
 
 $evg_dir = $PSScriptRoot
 
-& $evg_dir/get-ninja.ps1 -DestDir $evg_dir -Version 1.11.0 | Out-Null
+& $evg_dir/get-ninja.ps1 -DestDir $BuildDir -Version 1.11.0 | Out-Null
 
-$ninja_bin = Join-Path $evg_dir "ninja"
+$ninja_bin = Join-Path $BuildDir "ninja"
 
 $vs_env_run = Join-Path $evg_dir "vs-env-run.ps1"
 $ci_ps1 = Join-Path $evg_dir "ci.ps1"
