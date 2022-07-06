@@ -35,6 +35,8 @@ else
   IGNORE_SYSTEM_CMAKE=1 . "$LIBMONGOCRYPT_DIR/.evergreen/find-cmake.sh"
 fi
 
+export CMAKE
+
 # this needs to be explicitly exported for the nvm install below
 export NVM_DIR="${NODE_ARTIFACTS_PATH}/nvm"
 mkdir -p ${NVM_DIR}
