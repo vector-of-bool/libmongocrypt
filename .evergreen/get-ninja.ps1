@@ -19,6 +19,7 @@ param (
 
 $ErrorActionPreference = 'Stop'
 
+New-Item $DestDir -ItemType Directory -ErrorAction Ignore
 $ProgressPreference = "SilentlyContinue"
 $ninja_zip = Join-Path $DestDir ".ninja.zip"
 [Net.ServicePointManager]::SecurityProtocol = 'tls12, tls11'
