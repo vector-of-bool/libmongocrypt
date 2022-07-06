@@ -17,13 +17,15 @@ echo "Begin compile process"
 
 build_dir="$(abspath "$LIBMONGOCRYPT_DIR/cmake-build")"
 
-build_argv=(-D _unused=0)
+build_argv=(--build-dir "$build_dir")
 
 if [ "$PPA_BUILD_ONLY" ]; then
     # Clean-up from previous build iteration
     rm -rf "$build_dir" "${MONGOCRYPT_INSTALL_PREFIX}"
     build_argv+=(-D ENABLE_BUILD_FOR_PPA=ON)
 fi
+
+mkdir -p "$build_dir"
 
 bash "$EVG_DIR/build_one.sh" "${build_argv[@]}" \
     --install-dir "$MONGOCRYPT_INSTALL_PREFIX"
