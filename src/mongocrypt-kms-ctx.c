@@ -28,6 +28,8 @@
 #include <kms_message/kms_gcp_request.h>
 #include "mongocrypt.h"
 
+#include <mlib/defer.h>
+
 typedef struct {
    mongocrypt_status_t *status;
    void *ctx;
@@ -448,43 +450,37 @@ _handle_non200_http_status (int http_status,
 static bool
 _ctx_done_aws (mongocrypt_kms_ctx_t *kms, const char *json_field)
 {
-   kms_response_t *response = NULL;
-   const char *body;
-   bson_t body_bson = BSON_INITIALIZER;
-   bool ret;
-   bson_error_t bson_error;
-   bson_iter_t iter;
-   uint32_t b64_strlen;
-   char *b64_str;
-   int http_status;
-   size_t body_len;
-   mongocrypt_status_t *status;
+   mlib_defer_begin ();
+   mongocrypt_status_t *const status = kms->status;
 
-   status = kms->status;
-   ret = false;
    /* Parse out the {en|de}crypted result. */
-   http_status = kms_response_parser_status (kms->parser);
-   response = kms_response_parser_get_response (kms->parser);
-   body = kms_response_get_body (response, &body_len);
+   const int http_status = kms_response_parser_status (kms->parser);
+   kms_response_t *const response =
+      kms_response_parser_get_response (kms->parser);
+   mlib_defer (kms_response_destroy (response));
+   size_t body_len;
+   const char *const body = kms_response_get_body (response, &body_len);
 
    if (http_status != 200) {
       _handle_non200_http_status (http_status, body, body_len, status);
-      goto fail;
+      mlib_defer_return (false);
    }
 
    /* If HTTP response succeeded (status 200) then body should contain JSON.
     */
-   bson_destroy (&body_bson);
+   bson_t body_bson;
+   bson_error_t bson_error;
    if (!bson_init_from_json (&body_bson, body, body_len, &bson_error)) {
       CLIENT_ERR ("Error parsing JSON in KMS response '%s'. "
                   "HTTP status=%d. Response body=\n%s",
                   bson_error.message,
                   http_status,
                   body);
-      bson_init (&body_bson);
-      goto fail;
+      mlib_defer_return (false);
    }
+   mlib_defer (bson_destroy (&body_bson));
 
+   bson_iter_t iter;
    if (!bson_iter_init_find (&iter, &body_bson, json_field) ||
        !BSON_ITER_HOLDS_UTF8 (&iter)) {
       CLIENT_ERR (
@@ -493,10 +489,11 @@ _ctx_done_aws (mongocrypt_kms_ctx_t *kms, const char *json_field)
          json_field,
          http_status,
          body);
-      goto fail;
+      mlib_defer_return (false);
    }
 
-   b64_str = (char *) bson_iter_utf8 (&iter, &b64_strlen);
+   uint32_t b64_strlen;
+   const char *const b64_str = bson_iter_utf8 (&iter, &b64_strlen);
    BSON_ASSERT (b64_str);
    kms->result.data = bson_malloc (b64_strlen + 1);
    BSON_ASSERT (kms->result.data);
@@ -504,11 +501,8 @@ _ctx_done_aws (mongocrypt_kms_ctx_t *kms, const char *json_field)
    kms->result.len =
       kms_message_b64_pton (b64_str, kms->result.data, b64_strlen);
    kms->result.owned = true;
-   ret = true;
-fail:
-   bson_destroy (&body_bson);
-   kms_response_destroy (response);
-   return ret;
+
+   mlib_defer_end_return (true);
 }
 
 /* A Azure/GCP oauth KMS context has received full response. Parse out the

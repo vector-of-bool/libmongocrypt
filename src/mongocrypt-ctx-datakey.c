@@ -19,6 +19,8 @@
 #include "mongocrypt-ctx-private.h"
 #include "mongocrypt-crypto-private.h"
 
+#include <mlib/defer.h>
+
 static void
 _cleanup (mongocrypt_ctx_t *ctx)
 {
@@ -178,11 +180,20 @@ fail:
 static bool
 _kms_start (mongocrypt_ctx_t *ctx)
 {
-   bool ret = false;
+   mlib_defer_begin ();
+   bool okay = false;
    _mongocrypt_ctx_datakey_t *dkctx;
    char *access_token = NULL;
    _mongocrypt_opts_kms_providers_t *const kms_providers =
       _mongocrypt_ctx_kms_providers (ctx);
+
+   mlib_defer ({
+      bson_free (access_token);
+      if (!okay) {
+         mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
+         _mongocrypt_ctx_fail (ctx);
+      }
+   });
 
    dkctx = (_mongocrypt_ctx_datakey_t *) ctx;
 
@@ -192,56 +203,41 @@ _kms_start (mongocrypt_ctx_t *ctx)
    memset (&dkctx->kms, 0, sizeof (dkctx->kms));
    dkctx->kms_returned = false;
    if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_LOCAL) {
-      if (!_mongocrypt_wrap_key (ctx->crypt->crypto,
-                                 &kms_providers->local.key,
-                                 &dkctx->plaintext_key_material,
-                                 &dkctx->encrypted_key_material,
-                                 ctx->status)) {
-         _mongocrypt_ctx_fail (ctx);
-         goto done;
-      }
+      mlib_defer_check (_mongocrypt_wrap_key (ctx->crypt->crypto,
+                                              &kms_providers->local.key,
+                                              &dkctx->plaintext_key_material,
+                                              &dkctx->encrypted_key_material,
+                                              ctx->status));
       ctx->state = MONGOCRYPT_CTX_READY;
    } else if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_AWS) {
       /* For AWS provider, AWS credentials are supplied in
        * mongocrypt_setopt_kms_provider_aws. Data keys are encrypted with an
        * "encrypt" HTTP message to KMS. */
-      if (!_mongocrypt_kms_ctx_init_aws_encrypt (&dkctx->kms,
-                                                 kms_providers,
-                                                 &ctx->opts,
-                                                 &dkctx->plaintext_key_material,
-                                                 &ctx->crypt->log,
-                                                 ctx->crypt->crypto)) {
-         mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
-         _mongocrypt_ctx_fail (ctx);
-         goto done;
-      }
-
+      mlib_defer_check (
+         _mongocrypt_kms_ctx_init_aws_encrypt (&dkctx->kms,
+                                               kms_providers,
+                                               &ctx->opts,
+                                               &dkctx->plaintext_key_material,
+                                               &ctx->crypt->log,
+                                               ctx->crypt->crypto));
       ctx->state = MONGOCRYPT_CTX_NEED_KMS;
    } else if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_AZURE) {
       access_token =
          _mongocrypt_cache_oauth_get (ctx->crypt->cache_oauth_azure);
       if (access_token) {
-         if (!_mongocrypt_kms_ctx_init_azure_wrapkey (
-                &dkctx->kms,
-                &ctx->crypt->log,
-                kms_providers,
-                &ctx->opts,
-                access_token,
-                &dkctx->plaintext_key_material)) {
-            mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
-            _mongocrypt_ctx_fail (ctx);
-            goto done;
-         }
+         mlib_defer_check (_mongocrypt_kms_ctx_init_azure_wrapkey (
+            &dkctx->kms,
+            &ctx->crypt->log,
+            kms_providers,
+            &ctx->opts,
+            access_token,
+            &dkctx->plaintext_key_material));
       } else {
-         if (!_mongocrypt_kms_ctx_init_azure_auth (
-                &dkctx->kms,
-                &ctx->crypt->log,
-                kms_providers,
-                ctx->opts.kek.provider.azure.key_vault_endpoint)) {
-            mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
-            _mongocrypt_ctx_fail (ctx);
-            goto done;
-         }
+         mlib_defer_check (_mongocrypt_kms_ctx_init_azure_auth (
+            &dkctx->kms,
+            &ctx->crypt->log,
+            kms_providers,
+            ctx->opts.kek.provider.azure.key_vault_endpoint));
       }
       ctx->state = MONGOCRYPT_CTX_NEED_KMS;
    } else if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_GCP) {
@@ -253,43 +249,32 @@ _kms_start (mongocrypt_ctx_t *ctx)
             _mongocrypt_cache_oauth_get (ctx->crypt->cache_oauth_gcp);
       }
       if (access_token) {
-         if (!_mongocrypt_kms_ctx_init_gcp_encrypt (
-                &dkctx->kms,
-                &ctx->crypt->log,
-                kms_providers,
-                &ctx->opts,
-                access_token,
-                &dkctx->plaintext_key_material)) {
-            mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
-            _mongocrypt_ctx_fail (ctx);
-            goto done;
-         }
+         mlib_defer_check (_mongocrypt_kms_ctx_init_gcp_encrypt (
+            &dkctx->kms,
+            &ctx->crypt->log,
+            kms_providers,
+            &ctx->opts,
+            access_token,
+            &dkctx->plaintext_key_material));
       } else {
-         if (!_mongocrypt_kms_ctx_init_gcp_auth (
-                &dkctx->kms,
-                &ctx->crypt->log,
-                &ctx->crypt->opts,
-                kms_providers,
-                ctx->opts.kek.provider.gcp.endpoint)) {
-            mongocrypt_kms_ctx_status (&dkctx->kms, ctx->status);
-            _mongocrypt_ctx_fail (ctx);
-            goto done;
-         }
+         mlib_defer_check (_mongocrypt_kms_ctx_init_gcp_auth (
+            &dkctx->kms,
+            &ctx->crypt->log,
+            &ctx->crypt->opts,
+            kms_providers,
+            ctx->opts.kek.provider.gcp.endpoint));
       }
       ctx->state = MONGOCRYPT_CTX_NEED_KMS;
    } else if (ctx->opts.kek.kms_provider == MONGOCRYPT_KMS_PROVIDER_KMIP) {
-      if (!_kms_kmip_start (ctx)) {
-         goto done;
-      }
+      mlib_defer_check (_kms_kmip_start (ctx));
    } else {
       _mongocrypt_ctx_fail_w_msg (ctx, "unsupported KMS provider");
-      goto done;
+      mlib_defer_return (false);
    }
 
-   ret = true;
-done:
-   bson_free (access_token);
-   return ret;
+   okay = true;
+   mlib_defer_return (true);
+   mlib_defer_end ();
 }
 
 static bool

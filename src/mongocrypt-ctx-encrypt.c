@@ -22,6 +22,8 @@
 #include "mongocrypt-traverse-util-private.h"
 #include "mc-tokens-private.h"
 
+#include <mlib/defer.h>
+
 /* _fle2_append_encryptedFieldConfig copies encryptedFieldConfig and applies
  * default state collection names for escCollection, eccCollection, and
  * ecocCollection if required. */
@@ -31,14 +33,22 @@ _fle2_append_encryptedFieldConfig (bson_t *dst,
                                    const char *coll_name,
                                    mongocrypt_status_t *status)
 {
+   mlib_defer_begin ();
    bson_iter_t iter;
    bool has_escCollection = false;
    bool has_eccCollection = false;
    bool has_ecocCollection = false;
+   char *default_escCollection = NULL;
+   char *default_eccCollection = NULL;
+   char *default_ecocCollection = NULL;
+
+   mlib_defer (bson_free (default_escCollection),
+               bson_free (default_eccCollection),
+               bson_free (default_ecocCollection));
 
    if (!bson_iter_init (&iter, encryptedFieldConfig)) {
       CLIENT_ERR ("unable to iterate encryptedFieldConfig");
-      return false;
+      mlib_defer_return (false);
    }
 
    while (bson_iter_next (&iter)) {
@@ -54,41 +64,36 @@ _fle2_append_encryptedFieldConfig (bson_t *dst,
       if (!BSON_APPEND_VALUE (
              dst, bson_iter_key (&iter), bson_iter_value (&iter))) {
          CLIENT_ERR ("unable to append field: %s", bson_iter_key (&iter));
-         return false;
+         mlib_defer_return (false);
       }
    }
 
    if (!has_escCollection) {
-      char *default_escCollection =
-         bson_strdup_printf ("enxcol_.%s.esc", coll_name);
+      default_escCollection = bson_strdup_printf ("enxcol_.%s.esc", coll_name);
       if (!BSON_APPEND_UTF8 (dst, "escCollection", default_escCollection)) {
          CLIENT_ERR ("unable to append escCollection");
-         bson_free (default_escCollection);
-         return false;
+         mlib_defer_return (false);
       }
-      bson_free (default_escCollection);
    }
+
    if (!has_eccCollection) {
-      char *default_eccCollection =
-         bson_strdup_printf ("enxcol_.%s.ecc", coll_name);
+      default_eccCollection = bson_strdup_printf ("enxcol_.%s.ecc", coll_name);
       if (!BSON_APPEND_UTF8 (dst, "eccCollection", default_eccCollection)) {
          CLIENT_ERR ("unable to append eccCollection");
-         bson_free (default_eccCollection);
-         return false;
+         mlib_defer_return (false);
       }
-      bson_free (default_eccCollection);
    }
+
    if (!has_ecocCollection) {
-      char *default_ecocCollection =
+      default_ecocCollection =
          bson_strdup_printf ("enxcol_.%s.ecoc", coll_name);
       if (!BSON_APPEND_UTF8 (dst, "ecocCollection", default_ecocCollection)) {
          CLIENT_ERR ("unable to append ecocCollection");
-         bson_free (default_ecocCollection);
-         return false;
+         mlib_defer_return (false);
       }
-      bson_free (default_ecocCollection);
    }
-   return true;
+
+   mlib_defer_end_return (true);
 }
 
 static bool
@@ -202,20 +207,26 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
                                     mc_cmd_target_t cmd_target,
                                     mongocrypt_status_t *status)
 {
+   mlib_defer_begin ();
    bson_t out = BSON_INITIALIZER;
    bson_t explain = BSON_INITIALIZER;
    bson_iter_t iter;
    bool ok = false;
 
+   mlib_defer ({
+      bson_destroy (&explain);
+      if (!ok) {
+         bson_destroy (&out);
+      }
+   });
+
    if (0 != strcmp (cmd_name, "explain") || cmd_target == MC_TO_MONGOCRYPTD) {
       // All commands except "explain" expect "encryptionInformation"
       // at top-level. "explain" sent to mongocryptd expects
       // "encryptionInformation" at top-level.
-      if (!_fle2_append_encryptionInformation (
-             cmd, ns, encryptedFieldConfig, deleteTokens, coll_name, status)) {
-         goto fail;
-      }
-      goto success;
+      mlib_defer_check (_fle2_append_encryptionInformation (
+         cmd, ns, encryptedFieldConfig, deleteTokens, coll_name, status));
+      mlib_defer_return ((ok = true));
    }
 
    // The "explain" command for csfle is a special case.
@@ -236,7 +247,7 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
    BSON_ASSERT (bson_iter_init_find (&iter, cmd, "explain"));
    if (!BSON_ITER_HOLDS_DOCUMENT (&iter)) {
       CLIENT_ERR ("expected 'explain' to be document");
-      goto fail;
+      mlib_defer_return (false);
    }
 
    {
@@ -248,35 +259,22 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
       bson_copy_to (&tmp, &explain);
    }
 
-   if (!_fle2_append_encryptionInformation (&explain,
-                                            ns,
-                                            encryptedFieldConfig,
-                                            deleteTokens,
-                                            coll_name,
-                                            status)) {
-      goto fail;
-   }
+   mlib_defer_check (_fle2_append_encryptionInformation (
+      &explain, ns, encryptedFieldConfig, deleteTokens, coll_name, status));
 
    if (!BSON_APPEND_DOCUMENT (&out, "explain", &explain)) {
       CLIENT_ERR ("unable to append 'explain' document");
-      goto fail;
+      mlib_defer_return (false);
    }
 
    bson_copy_to_excluding_noinit (cmd, &out, "explain", NULL);
    bson_destroy (cmd);
    if (!bson_steal (cmd, &out)) {
       CLIENT_ERR ("failed to steal BSON without encryptionInformation");
-      goto fail;
+      mlib_defer_return (false);
    }
 
-success:
-   ok = true;
-fail:
-   bson_destroy (&explain);
-   if (!ok) {
-      bson_destroy (&out);
-   }
-   return ok;
+   mlib_defer_end_return ((ok = true));
 }
 
 /* Construct the list collections command to send. */
@@ -957,20 +955,23 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
 
    _mongo_crypt_v1_vtable csfle = ctx->crypt->csfle;
    mongo_crypt_v1_lib *csfle_lib = ctx->crypt->csfle_lib;
+
+   mlib_defer_begin ();
    BSON_ASSERT (csfle_lib);
    bool okay = false;
 
    // Obtain the command for markings
    bson_t cmd = BSON_INITIALIZER;
+   mlib_defer (bson_destroy (&cmd));
    if (!_create_markings_cmd_bson (ctx, &cmd)) {
-      goto fail_create_cmd;
+      mlib_defer_return (false);
    }
 
    const char *cmd_name = ectx->cmd_name;
 
    if (!_add_dollar_db (cmd_name, &cmd, ectx->db_name, ctx->status)) {
       _mongocrypt_ctx_fail (ctx);
-      goto fail_create_cmd;
+      mlib_defer_return (false);
    }
 
 #define CHECK_CSFLE_ERROR(Func, FailLabel)                             \
@@ -985,17 +986,19 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
                                 csfle.status_get_error (status),       \
                                 csfle.status_get_code (status));       \
          _mongocrypt_ctx_fail (ctx);                                   \
-         goto FailLabel;                                               \
+         mlib_defer_return (false);                                    \
       }                                                                \
    } else                                                              \
       ((void) 0)
 
    mongo_crypt_v1_status *status = csfle.status_create ();
    BSON_ASSERT (status);
+   mlib_defer (csfle.status_destroy (status));
 
    mongo_crypt_v1_query_analyzer *qa =
       csfle.query_analyzer_create (csfle_lib, status);
    CHECK_CSFLE_ERROR ("query_analyzer_create", fail_qa_create);
+   mlib_defer (csfle.query_analyzer_destroy (qa));
 
    uint32_t marked_bson_len = 0;
    uint8_t *marked_bson = csfle.analyze_query (qa,
@@ -1005,32 +1008,28 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
                                                &marked_bson_len,
                                                status);
    CHECK_CSFLE_ERROR ("analyze_query", fail_analyze_query);
+   mlib_defer (csfle.bson_free (marked_bson));
 
    // Copy out the marked document.
    mongocrypt_binary_t *marked =
       mongocrypt_binary_new_from_data (marked_bson, marked_bson_len);
+   mlib_defer (mongocrypt_binary_destroy (marked));
    if (!_mongo_feed_markings (ctx, marked)) {
       _mongocrypt_ctx_fail_w_msg (
          ctx, "Consuming the generated csfle markings failed");
-      goto fail_feed_markings;
+      mlib_defer_return (false);
    }
 
    okay = _mongo_done_markings (ctx);
    if (!okay) {
       _mongocrypt_ctx_fail_w_msg (
          ctx, "Finalizing the generated csfle markings failed");
+      mlib_defer_return (false);
    }
 
-fail_feed_markings:
-   mongocrypt_binary_destroy (marked);
-   csfle.bson_free (marked_bson);
-fail_analyze_query:
-   csfle.query_analyzer_destroy (qa);
-fail_qa_create:
-   csfle.status_destroy (status);
-fail_create_cmd:
-   bson_destroy (&cmd);
-   return okay;
+   okay = true;
+   mlib_defer_return (okay);
+   mlib_defer_end ();
 }
 
 
@@ -1935,9 +1934,8 @@ _try_empty_schema_for_create (mongocrypt_ctx_t *ctx)
    return true;
 }
 
-/* _try_schema_from_create_or_collMod_cmd tries to find a JSON schema included
- * in a create or collMod command by checking for "validator.$jsonSchema".
- * Example:
+/* _try_schema_from_create_cmd tries to find a JSON schema included in a create
+ * command by checking for "validator.$jsonSchema". Example:
  * {
  *     "create" : "coll",
  *     "validator" : {
@@ -1948,23 +1946,18 @@ _try_empty_schema_for_create (mongocrypt_ctx_t *ctx)
  * }
  * If the "create" command does not include a JSON schema, an empty JSON schema
  * is returned. This is to avoid an unnecessary 'listCollections' command for
- * create.
- *
- * If the "collMod" command does not include a JSON schema, a schema is later
- * requested by entering the MONGOCRYPT_CTX_NEED_MONGO_COLLINFO state.
- * This is because a "collMod" command may have sensitive data in the
- * "validator" field.
- */
+ * create. */
 static bool
-_try_schema_from_create_or_collMod_cmd (mongocrypt_ctx_t *ctx)
+_try_schema_from_create_cmd (mongocrypt_ctx_t *ctx)
 {
    _mongocrypt_ctx_encrypt_t *ectx;
    mongocrypt_status_t *status = ctx->status;
 
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
+   /* As a special case, use an empty schema for the 'create' command. */
    const char *cmd_name = ectx->cmd_name;
 
-   if (0 != strcmp (cmd_name, "create") && 0 != strcmp (cmd_name, "collMod")) {
+   if (0 != strcmp (cmd_name, "create")) {
       return true;
    }
 
@@ -2530,7 +2523,7 @@ mongocrypt_ctx_encrypt_ismaster_done (mongocrypt_ctx_t *ctx)
       return false;
    }
    if (_mongocrypt_buffer_empty (&ectx->encrypted_field_config)) {
-      if (!_try_schema_from_create_or_collMod_cmd (ctx)) {
+      if (!_try_schema_from_create_cmd (ctx)) {
          return false;
       }
 

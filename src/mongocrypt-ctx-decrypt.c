@@ -23,6 +23,8 @@
 #include "mc-fle2-payload-uev-private.h"
 #include "mc-fle2-insert-update-payload-private.h"
 
+#include <mlib/defer.h>
+
 static bool
 _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (
    void *ctx,
@@ -30,76 +32,63 @@ _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (
    bson_value_t *out,
    mongocrypt_status_t *status)
 {
+   mlib_defer_begin ();
    bool ret = false;
    _mongocrypt_key_broker_t *kb = ctx;
    mc_FLE2IndexedEqualityEncryptedValue_t *ieev =
       mc_FLE2IndexedEqualityEncryptedValue_new ();
+   mlib_defer (mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev));
    _mongocrypt_buffer_t S_Key = {0};
+   mlib_defer (_mongocrypt_buffer_cleanup (&S_Key));
    _mongocrypt_buffer_t K_Key = {0};
+   mlib_defer (_mongocrypt_buffer_cleanup (&K_Key));
 
-   if (!mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status)) {
-      goto fail;
-   }
+   mlib_defer_check (
+      mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status));
 
    const _mongocrypt_buffer_t *S_KeyId =
       mc_FLE2IndexedEqualityEncryptedValue_get_S_KeyId (ieev, status);
-   if (!S_KeyId) {
-      goto fail;
-   }
+   mlib_defer_check (S_KeyId);
 
    if (!_mongocrypt_key_broker_decrypted_key_by_id (kb, S_KeyId, &S_Key)) {
       _mongocrypt_key_broker_status (kb, status);
-      goto fail;
+      mlib_defer_return (false);
    }
 
    /* Decrypt InnerEncrypted to get K_KeyId. */
-   if (!mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (
-          kb->crypt->crypto, ieev, &S_Key, status)) {
-      goto fail;
-   }
+   mlib_defer_check (mc_FLE2IndexedEqualityEncryptedValue_add_S_Key (
+      kb->crypt->crypto, ieev, &S_Key, status));
 
    const _mongocrypt_buffer_t *K_KeyId =
       mc_FLE2IndexedEqualityEncryptedValue_get_K_KeyId (ieev, status);
-   if (!K_KeyId) {
-      goto fail;
-   }
+   mlib_defer_check (K_KeyId);
 
    if (!_mongocrypt_key_broker_decrypted_key_by_id (kb, K_KeyId, &K_Key)) {
       _mongocrypt_key_broker_status (kb, status);
-      goto fail;
+      mlib_defer_return (false);
    }
 
    /* Decrypt ClientEncryptedValue. */
-   if (!mc_FLE2IndexedEqualityEncryptedValue_add_K_Key (
-          kb->crypt->crypto, ieev, &K_Key, status)) {
-      goto fail;
-   }
+   mlib_defer_check (mc_FLE2IndexedEqualityEncryptedValue_add_K_Key (
+      kb->crypt->crypto, ieev, &K_Key, status));
 
    const _mongocrypt_buffer_t *clientValue =
       mc_FLE2IndexedEqualityEncryptedValue_get_ClientValue (ieev, status);
-   if (!clientValue) {
-      goto fail;
-   }
+   mlib_defer_check (clientValue);
 
    uint8_t original_bson_type =
       mc_FLE2IndexedEqualityEncryptedValue_get_original_bson_type (ieev,
                                                                    status);
-   if (0 == original_bson_type) {
-      goto fail;
-   }
+   mlib_defer_check (original_bson_type != 0);
 
    if (!_mongocrypt_buffer_to_bson_value (
           (_mongocrypt_buffer_t *) clientValue, original_bson_type, out)) {
       CLIENT_ERR ("decrypted clientValue is not valid BSON");
-      goto fail;
+      mlib_defer_return (false);
    }
 
-   ret = true;
-fail:
-   _mongocrypt_buffer_cleanup (&K_Key);
-   _mongocrypt_buffer_cleanup (&S_Key);
-   mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev);
-   return ret;
+   mlib_defer_return (true);
+   mlib_defer_end ();
 }
 
 static bool
@@ -319,13 +308,13 @@ _finalize (mongocrypt_ctx_t *ctx, mongocrypt_binary_t *out)
 
    bson_iter_init (&iter, &as_bson);
    bson_init (&final_bson);
-   res = _mongocrypt_transform_binary_in_bson (
-      _replace_ciphertext_with_plaintext,
-      &ctx->kb,
-      TRAVERSE_MATCH_CIPHERTEXT,
-      &iter,
-      &final_bson,
-      ctx->status);
+   res =
+      _mongocrypt_transform_binary_in_bson (_replace_ciphertext_with_plaintext,
+                                            &ctx->kb,
+                                            TRAVERSE_MATCH_CIPHERTEXT,
+                                            &iter,
+                                            &final_bson,
+                                            ctx->status);
    if (!res) {
       bson_destroy (&final_bson);
       return _mongocrypt_ctx_fail (ctx);

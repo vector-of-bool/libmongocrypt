@@ -27,6 +27,8 @@
 #include "mongocrypt-key-broker-private.h"
 #include "mongocrypt-marking-private.h"
 
+#include <mlib/defer.h>
+
 static bool
 _mongocrypt_marking_parse_fle1_placeholder (const bson_t *in,
                                             _mongocrypt_marking_t *out,
@@ -228,8 +230,7 @@ _mongocrypt_marking_cleanup (_mongocrypt_marking_t *marking)
       if (!useCounter) {                                                       \
          /* FindEqualityPayload uses *fromDataToken */                         \
          _mongocrypt_buffer_copy_to (                                          \
-            mc_##Name##DerivedFromDataToken_get (fromDataToken),               \
-            out);                                                              \
+            mc_##Name##DerivedFromDataToken_get (fromDataToken), out);         \
          mc_##Name##DerivedFromDataToken_destroy (fromDataToken);              \
          return true;                                                          \
       }                                                                        \
@@ -360,14 +361,21 @@ _mongocrypt_fle2_placeholder_common (_mongocrypt_key_broker_t *kb,
                                      int64_t maxContentionCounter,
                                      mongocrypt_status_t *status)
 {
+   mlib_defer_begin ();
    _mongocrypt_crypto_t *crypto = kb->crypt->crypto;
    _mongocrypt_buffer_t indexKey = {0};
    memset (ret, 0, sizeof (*ret));
+   bool okay = false;
+   mlib_defer ({
+      if (!okay)
+         _FLE2EncryptedPayloadCommon_cleanup (ret);
+      _mongocrypt_buffer_cleanup (&indexKey);
+   });
 
    if (!_mongocrypt_key_broker_decrypted_key_by_id (
           kb, indexKeyId, &indexKey)) {
       CLIENT_ERR ("unable to retrieve key");
-      goto fail;
+      mlib_defer_return (false);
    }
 
    if (indexKey.len != MONGOCRYPT_KEY_LEN) {
@@ -375,7 +383,7 @@ _mongocrypt_fle2_placeholder_common (_mongocrypt_key_broker_t *kb,
                   ", got len=%" PRIu32,
                   MONGOCRYPT_KEY_LEN,
                   indexKey.len);
-      goto fail;
+      mlib_defer_return (false);
    }
 
    // indexKey is 3 equal sized keys: [Ke][Km][TokenKey]
@@ -385,53 +393,41 @@ _mongocrypt_fle2_placeholder_common (_mongocrypt_key_broker_t *kb,
           indexKey.data + (2 * MONGOCRYPT_TOKEN_KEY_LEN),
           MONGOCRYPT_TOKEN_KEY_LEN)) {
       CLIENT_ERR ("failed allocating memory for token key");
-      goto fail;
+      mlib_defer_return (false);
    }
 
    ret->collectionsLevel1Token =
       mc_CollectionsLevel1Token_new (crypto, &ret->tokenKey, status);
    if (!ret->collectionsLevel1Token) {
       CLIENT_ERR ("unable to derive collectionLevel1Token");
-      goto fail;
+      mlib_defer_return (false);
    }
 
-   if (!_fle2_derive_EDC_token (crypto,
-                                &ret->edcDerivedToken,
-                                ret->collectionsLevel1Token,
-                                value,
-                                useCounter,
-                                maxContentionCounter,
-                                status)) {
-      goto fail;
-   }
+   mlib_defer_check (_fle2_derive_EDC_token (crypto,
+                                             &ret->edcDerivedToken,
+                                             ret->collectionsLevel1Token,
+                                             value,
+                                             useCounter,
+                                             maxContentionCounter,
+                                             status));
 
-   if (!_fle2_derive_ESC_token (crypto,
-                                &ret->escDerivedToken,
-                                ret->collectionsLevel1Token,
-                                value,
-                                useCounter,
-                                maxContentionCounter,
-                                status)) {
-      goto fail;
-   }
+   mlib_defer_check (_fle2_derive_ESC_token (crypto,
+                                             &ret->escDerivedToken,
+                                             ret->collectionsLevel1Token,
+                                             value,
+                                             useCounter,
+                                             maxContentionCounter,
+                                             status));
 
-   if (!_fle2_derive_ECC_token (crypto,
-                                &ret->eccDerivedToken,
-                                ret->collectionsLevel1Token,
-                                value,
-                                useCounter,
-                                maxContentionCounter,
-                                status)) {
-      goto fail;
-   }
+   mlib_defer_check (_fle2_derive_ECC_token (crypto,
+                                             &ret->eccDerivedToken,
+                                             ret->collectionsLevel1Token,
+                                             value,
+                                             useCounter,
+                                             maxContentionCounter,
+                                             status));
 
-   _mongocrypt_buffer_cleanup (&indexKey);
-   return true;
-
-fail:
-   _FLE2EncryptedPayloadCommon_cleanup (ret);
-   _mongocrypt_buffer_cleanup (&indexKey);
-   return false;
+   mlib_defer_end_return ((okay = true));
 }
 
 
@@ -586,13 +582,14 @@ _mongocrypt_fle2_placeholder_to_find_ciphertext (
 
    _mongocrypt_buffer_from_iter (&value, &placeholder->v_iter);
 
-   if (!_mongocrypt_fle2_placeholder_common (kb,
-                                             &common,
-                                             &placeholder->index_key_id,
-                                             &value,
-                                             false, /* derive tokens without counter */
-                                             placeholder->maxContentionCounter,
-                                             status)) {
+   if (!_mongocrypt_fle2_placeholder_common (
+          kb,
+          &common,
+          &placeholder->index_key_id,
+          &value,
+          false, /* derive tokens without counter */
+          placeholder->maxContentionCounter,
+          status)) {
       goto fail;
    }
 

@@ -17,6 +17,8 @@
 #include "mongocrypt-key-broker-private.h"
 #include "mongocrypt-private.h"
 
+#include <mlib/defer.h>
+
 void
 _mongocrypt_key_broker_init (_mongocrypt_key_broker_t *kb, mongocrypt_t *crypt)
 {
@@ -149,50 +151,52 @@ _key_broker_fail (_mongocrypt_key_broker_t *kb)
 static bool
 _try_satisfying_from_cache (_mongocrypt_key_broker_t *kb, key_request_t *req)
 {
-   _mongocrypt_cache_key_attr_t *attr = NULL;
    _mongocrypt_cache_key_value_t *value = NULL;
+   mlib_defer_begin ();
    bool ret = false;
+
 
    if (kb->state != KB_REQUESTING && kb->state != KB_ADDING_DOCS_ANY) {
       _key_broker_fail_w_msg (
          kb, "trying to retrieve key from cache in invalid state");
-      goto cleanup;
+      mlib_defer_return (false);
    }
 
-   attr = _mongocrypt_cache_key_attr_new (&req->id, req->alt_name);
+   _mongocrypt_cache_key_attr_t *const attr =
+      _mongocrypt_cache_key_attr_new (&req->id, req->alt_name);
+   mlib_defer (_mongocrypt_cache_key_attr_destroy (attr));
+
    if (!_mongocrypt_cache_get (&kb->crypt->cache_key, attr, (void **) &value)) {
       _key_broker_fail_w_msg (kb, "failed to retrieve from cache");
-      goto cleanup;
+      mlib_defer_return (false);
+   }
+   mlib_defer (_mongocrypt_cache_key_value_destroy (value));
+
+   if (!value) {
+      // No value obtained, but not an error
+      mlib_defer_return (true);
    }
 
-   if (value) {
-      key_returned_t *key_returned;
-
-      req->satisfied = true;
-      if (_mongocrypt_buffer_empty (&value->decrypted_key_material)) {
-         _key_broker_fail_w_msg (
-            kb, "cache entry does not have decrypted key material");
-         goto cleanup;
-      }
-
-      /* Add the cached key to our locally copied list.
-       * Note, we deduplicate requests, but *not* keys from the cache,
-       * because the state of the cache may change between each call to
-       * _mongocrypt_cache_get.
-       */
-      key_returned =
-         _key_returned_prepend (kb, &kb->keys_cached, value->key_doc);
-      _mongocrypt_buffer_init (&key_returned->decrypted_key_material);
-      _mongocrypt_buffer_copy_to (&value->decrypted_key_material,
-                                  &key_returned->decrypted_key_material);
-      key_returned->decrypted = true;
+   req->satisfied = true;
+   if (_mongocrypt_buffer_empty (&value->decrypted_key_material)) {
+      _key_broker_fail_w_msg (
+         kb, "cache entry does not have decrypted key material");
+      mlib_defer_return (false);
    }
 
-   ret = true;
-cleanup:
-   _mongocrypt_cache_key_value_destroy (value);
-   _mongocrypt_cache_key_attr_destroy (attr);
-   return ret;
+   /* Add the cached key to our locally copied list.
+    * Note, we deduplicate requests, but *not* keys from the cache,
+    * because the state of the cache may change between each call to
+    * _mongocrypt_cache_get.
+    */
+   key_returned_t *const key_returned =
+      _key_returned_prepend (kb, &kb->keys_cached, value->key_doc);
+   _mongocrypt_buffer_init (&key_returned->decrypted_key_material);
+   _mongocrypt_buffer_copy_to (&value->decrypted_key_material,
+                               &key_returned->decrypted_key_material);
+   key_returned->decrypted = true;
+
+   mlib_defer_end_return (true);
 }
 
 static bool

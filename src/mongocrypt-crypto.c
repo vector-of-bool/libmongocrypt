@@ -28,6 +28,8 @@
 #include "mongocrypt-private.h"
 #include "mongocrypt-status-private.h"
 
+#include <mlib/defer.h>
+
 #include <inttypes.h>
 
 /* This function uses ECB callback to simulate CTR encrypt and decrypt
@@ -46,37 +48,36 @@ _crypto_aes_256_ctr_encrypt_decrypt_via_ecb (
    BSON_ASSERT (args.iv && args.iv->len);
    BSON_ASSERT (args.out);
 
+   mlib_defer_begin ();
+
    if (args.out->len < args.in->len) {
       CLIENT_ERR ("output buffer too small");
-      return false;
+      mlib_defer_return (false);
    }
 
    _mongocrypt_buffer_t ctr, tmp;
    mongocrypt_binary_t key_bin, out_bin, in_bin, ctr_bin, tmp_bin;
-   bool ret;
 
    _mongocrypt_buffer_to_binary (args.key, &key_bin);
    _mongocrypt_buffer_init (&ctr);
+   mlib_defer (_mongocrypt_buffer_cleanup (&ctr));
    _mongocrypt_buffer_copy_to (args.iv, &ctr);
    _mongocrypt_buffer_to_binary (&ctr, &ctr_bin);
    _mongocrypt_buffer_to_binary (args.out, &out_bin);
    _mongocrypt_buffer_to_binary (args.in, &in_bin);
    _mongocrypt_buffer_init_size (&tmp, args.iv->len);
+   mlib_defer (_mongocrypt_buffer_cleanup (&tmp));
    _mongocrypt_buffer_to_binary (&tmp, &tmp_bin);
 
    for (uint32_t ptr = 0; ptr < args.in->len;) {
       /* Encrypt value in CTR buffer */
       uint32_t bytes_written = 0;
-      if (!aes_256_ecb_encrypt (
-             ctx, &key_bin, NULL, &ctr_bin, &tmp_bin, &bytes_written, status)) {
-         ret = false;
-         goto cleanup;
-      }
+      mlib_defer_check (aes_256_ecb_encrypt (
+         ctx, &key_bin, NULL, &ctr_bin, &tmp_bin, &bytes_written, status));
 
       if (bytes_written != tmp_bin.len) {
          CLIENT_ERR ("encryption hook returned unexpected length");
-         ret = false;
-         goto cleanup;
+         mlib_defer_return (false);
       }
 
       /* XOR resulting stream with original data */
@@ -98,12 +99,7 @@ _crypto_aes_256_ctr_encrypt_decrypt_via_ecb (
       *args.bytes_written = args.in->len;
    }
 
-   ret = true;
-
-cleanup:
-   _mongocrypt_buffer_cleanup (&ctr);
-   _mongocrypt_buffer_cleanup (&tmp);
-   return ret;
+   mlib_defer_end_return (true);
 }
 
 /* Crypto primitives. These either call the native built in crypto primitives or
@@ -1717,7 +1713,8 @@ _mongocrypt_random_int64 (_mongocrypt_crypto_t *crypto,
    uint64_t u64_exclusive_upper_bound = (uint64_t) exclusive_upper_bound;
    uint64_t u64_out;
 
-   if (!_mongocrypt_random_uint64 (crypto, u64_exclusive_upper_bound, &u64_out, status)) {
+   if (!_mongocrypt_random_uint64 (
+          crypto, u64_exclusive_upper_bound, &u64_out, status)) {
       return false;
    }
 
