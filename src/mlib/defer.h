@@ -130,6 +130,15 @@
 #include <stdio.h>  // for fprintf()
 #include <stdlib.h> // for abort()
 
+#if defined(__GNUC__) && __GNUC__ <= 4
+// Old GCC has trouble with the inlie _Pragma to disable maybe-uninitialized. If
+// we're using defer(), we'll almost certainly hit those warnings, even though
+// they are false-positivies. We test on other compilers that have better
+// diagnostic control and will catch maybe-uninitialized more correctly, so
+// we'll just disable it completely for this GCC version.
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 /**
  * @brief Each mlib_defer creates an instance of this object with a generated
  * name.
@@ -267,7 +276,7 @@ struct mlib_defer_context {
    } else                                                      \
       ((void) 0)
 
-/**
+/**t
  * @brief Unwind all deferral scopes in the current function.
  *
  * No further defer-related psuedo-statements may be invoked after this point,
