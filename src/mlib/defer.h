@@ -130,7 +130,7 @@
 #include <stdio.h>  // for fprintf()
 #include <stdlib.h> // for abort()
 
-#if defined(__GNUC__) && __GNUC__ <= 4
+#if !defined(__clang__) && defined(__GNUC__) && __GNUC__ <= 4
 // Old GCC has trouble with the inlie _Pragma to disable maybe-uninitialized. If
 // we're using defer(), we'll almost certainly hit those warnings, even though
 // they are false-positivies. We test on other compilers that have better
@@ -196,21 +196,20 @@ struct mlib_defer_context {
  * mlib_defer_end_return().
  */
 #define mlib_defer_begin() _mlibDeferBegin ()
-#define _mlibDeferBegin()                                            \
-   MLIB_IF_GNU_LIKE (_Pragma ("GCC diagnostic push");)               \
-   MLIB_IF_GNU_LIKE (                                                \
-      _Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"");) \
-   /* init a new deferral context. There should be at most           \
-      one of these per function */                                   \
-   struct mlib_defer_context _mlibDeferContext = {NULL, 0, 0};       \
-   mlib_defer_push ();                                               \
-                                                                     \
-   _mlibDeferReenter:                                                \
-   /* Jump! */                                                       \
-   switch (_mlibDeferContext.jump) {                                 \
-   default: /* Should never be reached */                            \
-      abort ();                                                      \
-   case 0: /* The initial label, just enters the code */             \
+#define _mlibDeferBegin()                                                      \
+   MLIB_IF_GNU_LIKE (_Pragma ("GCC diagnostic push");)                         \
+   MLIB_IF_GCC (_Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"");) \
+   /* init a new deferral context. There should be at most                     \
+      one of these per function */                                             \
+   struct mlib_defer_context _mlibDeferContext = {NULL, 0, 0};                 \
+   mlib_defer_push ();                                                         \
+                                                                               \
+   _mlibDeferReenter:                                                          \
+   /* Jump! */                                                                 \
+   switch (_mlibDeferContext.jump) {                                           \
+   default: /* Should never be reached */                                      \
+      abort ();                                                                \
+   case 0: /* The initial label, just enters the code */                       \
       ((void) 0)
 
 /**

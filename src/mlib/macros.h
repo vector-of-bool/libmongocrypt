@@ -102,6 +102,24 @@
 #endif
 #endif
 
+#if defined(__GNUC__) && !defined(__clang__)
+#define MLIB_IF_GCC(...) __VA_ARGS__
+#else
+#define MLIB_IF_GCC(...)
+#endif
+
+#ifdef __clang__
+#define MLIB_IF_CLANG(...) __VA_ARGS__
+#else
+#define MLIB_IF_CLANG(...)
+#endif
+
+#ifdef _MSC_VER
+#define MLIB_IF_MSVC(...) __VA_ARGS__
+#else
+#define MLIB_IF_MSVC(...)
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 #define MLIB_IF_GNU_LIKE(...) __VA_ARGS__
 #else
