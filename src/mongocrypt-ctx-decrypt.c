@@ -33,7 +33,6 @@ _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (
    mongocrypt_status_t *status)
 {
    mlib_defer_begin ();
-   bool ret = false;
    _mongocrypt_key_broker_t *kb = ctx;
    mc_FLE2IndexedEqualityEncryptedValue_t *ieev =
       mc_FLE2IndexedEqualityEncryptedValue_new ();

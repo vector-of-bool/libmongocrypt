@@ -153,8 +153,6 @@ _try_satisfying_from_cache (_mongocrypt_key_broker_t *kb, key_request_t *req)
 {
    _mongocrypt_cache_key_value_t *value = NULL;
    mlib_defer_begin ();
-   bool ret = false;
-
 
    if (kb->state != KB_REQUESTING && kb->state != KB_ADDING_DOCS_ANY) {
       _key_broker_fail_w_msg (
