@@ -427,7 +427,8 @@ _mongocrypt_fle2_placeholder_common (_mongocrypt_key_broker_t *kb,
                                              maxContentionCounter,
                                              status));
 
-   mlib_defer_end_return ((okay = true));
+   okay = true;
+   mlib_defer_end_return (okay);
 }
 
 

@@ -226,7 +226,8 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
       // "encryptionInformation" at top-level.
       mlib_defer_check (_fle2_append_encryptionInformation (
          cmd, ns, encryptedFieldConfig, deleteTokens, coll_name, status));
-      mlib_defer_return ((ok = true));
+      ok = true;
+      mlib_defer_return (ok);
    }
 
    // The "explain" command for csfle is a special case.
@@ -274,7 +275,8 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
       mlib_defer_return (false);
    }
 
-   mlib_defer_end_return ((ok = true));
+   ok = true;
+   mlib_defer_end_return (ok);
 }
 
 /* Construct the list collections command to send. */

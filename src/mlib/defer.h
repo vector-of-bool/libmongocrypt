@@ -46,13 +46,7 @@
  * equivalent to:
  *
  *    mlib_defer_runall();
- *    return;
- *
- * If given any arguments, it is equivalent to:
- *
- *    decltype(__VA_ARGS__) __retval = __VA_ARGS__;
- *    mlib_defer_runall();
- *    return __retval;
+ *    return __VA_ARGS__;
  *
  * That is: The return value expression is evaluated *first*, and then unwinding
  * occurs. (Note that this requires compiler support for decltype/__typeof__).
@@ -236,7 +230,7 @@ struct mlib_defer_context {
 /**
  * @brief Like mlib_defer_end(), but with a return value.
  *
- * NOTE: The return-value expression is evaluated BEFORE unwinding
+ * NOTE: The return-value expression is evaluated AFTER unwinding
  */
 #define mlib_defer_end_return(...)  \
    mlib_defer_return (__VA_ARGS__); \
@@ -351,29 +345,15 @@ struct mlib_defer_context {
  * This will evaluate the given expression (if provided), then run
  * mlib_defer_runall(), and then return.
  *
- * @note The return-expression is evaluated BEFORE mlib_defer_runall() is
+ * @note The return-expression is evaluated AFTER mlib_defer_runall() is
  * executed.
  */
 #define mlib_defer_return(...) _mlibDeferReturn (__VA_ARGS__)
-#define _mlibDeferReturn(...)                 \
-   MLIB_IF_ELSE (MLIB_IS_EMPTY (__VA_ARGS__), \
-                 _mlibDeferReturnVoid (),     \
-                 _mlibDeferReturnVal (__VA_ARGS__))
-
-
-#define _mlibDeferReturnVoid() \
-   if (1) {                    \
-      mlib_defer_runall ();    \
-      return;                  \
-   } else                      \
-      ((void) 0)
-
-#define _mlibDeferReturnVal(...)                                    \
-   if (1) {                                                         \
-      mlib_decltype (__VA_ARGS__) _mlibReturnValue = (__VA_ARGS__); \
-      mlib_defer_runall ();                                         \
-      return _mlibReturnValue;                                      \
-   } else                                                           \
+#define _mlibDeferReturn(...) \
+   if (1) {                   \
+      mlib_defer_runall ();   \
+      return __VA_ARGS__;     \
+   } else                     \
       ((void) 0)
 
 /**
