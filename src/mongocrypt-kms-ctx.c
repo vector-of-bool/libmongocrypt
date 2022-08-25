@@ -450,13 +450,13 @@ _handle_non200_http_status (int http_status,
 static bool
 _ctx_done_aws (mongocrypt_kms_ctx_t *kms, const char *json_field)
 {
-   mlib_defer_begin ();
    mongocrypt_status_t *const status = kms->status;
+   kms_response_t *response = NULL;
 
    /* Parse out the {en|de}crypted result. */
    const int http_status = kms_response_parser_status (kms->parser);
-   kms_response_t *const response =
-      kms_response_parser_get_response (kms->parser);
+   mlib_defer_begin (bool);
+   response = kms_response_parser_get_response (kms->parser);
    mlib_defer (kms_response_destroy (response));
    size_t body_len;
    const char *const body = kms_response_get_body (response, &body_len);

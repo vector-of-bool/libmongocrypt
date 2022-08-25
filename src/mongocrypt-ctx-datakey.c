@@ -180,12 +180,13 @@ fail:
 static bool
 _kms_start (mongocrypt_ctx_t *ctx)
 {
-   mlib_defer_begin ();
    bool okay = false;
-   _mongocrypt_ctx_datakey_t *dkctx;
+   _mongocrypt_ctx_datakey_t *const dkctx = (_mongocrypt_ctx_datakey_t *) ctx;
    char *access_token = NULL;
    _mongocrypt_opts_kms_providers_t *const kms_providers =
       _mongocrypt_ctx_kms_providers (ctx);
+
+   mlib_defer_begin (bool);
 
    mlib_defer ({
       bson_free (access_token);
@@ -194,8 +195,6 @@ _kms_start (mongocrypt_ctx_t *ctx)
          _mongocrypt_ctx_fail (ctx);
       }
    });
-
-   dkctx = (_mongocrypt_ctx_datakey_t *) ctx;
 
    /* Clear out any pre-existing initialized KMS context, and zero it (so it is
     * safe to call cleanup again). */
@@ -273,8 +272,7 @@ _kms_start (mongocrypt_ctx_t *ctx)
    }
 
    okay = true;
-   mlib_defer_return (true);
-   mlib_defer_end ();
+   mlib_defer_end_return (true);
 }
 
 static bool

@@ -60,58 +60,6 @@
  *    mlib_defer_end();
  *
  *
- * * mlib_defer_push() / mlib_defer_pop()
- *
- * Push/pop a "block" on the defer stack.
- *
- * By default, there is a single block created with mlib_defer_begin(). Each
- * mlib_defer() is associated with the nearest preceding block.
- * mlib_defer_pop() will execute only the deferred statements for the top-most
- * block, and then remove that block from the stack.
- *
- * These are useful to create deferred statements that are executed within a
- * loop, or need to be unwound without fully existing the function:
- *
- *    mlib_defer_begin()
- *    while (some_condition) {
- *       mlib_defer_push();
- *
- *       / ... do stuff ... /
- *
- *       mlib_defer_pop();  // Clean up loop resources
- *    }
- *    mlib_defer_end_return();
- *
- * NOTE: mlib_defer_runall() is equivalent to calling mlib_defer_pop() for
- * every block in scope, in reverse order.
- *
- *
- * * mlib_defer_continue / mlib_defer_break
- *
- * Psuedo-keywords analogous to continue/break, but execute an
- * 'mlib_defer_pop()' before jumping.
- *
- *    mlib_defer_begin()
- *    while (some_condition) {
- *       mlib_defer_push();
- *
- *       / ... do stuff ... /
- *
- *       if (should_continue) {
- *          mlib_defer_continue;  // Clean up loop resources, then 'continue'
- *       }
- *
- *       if (should_break) {
- *          mlib_defer_break;     // Clean up look resources, then 'break'
- *       }
- *
- *       / ... do more stuff ... /
- *
- *       mlib_defer_pop();  // Clean up loop resources
- *    }
- *    mlib_defer_end_return();
- *
- *
  * * mlib_defer_check(...)
  *
  * If the given argument evaluates to a false-like value, equivalent to
@@ -171,15 +119,20 @@ struct mlib_defer_block_scope {
  * exist in a function.
  */
 struct mlib_defer_context {
-   // The top-most deferred block. Updated by mlib_defer_push() and
-   // mlib_defer_pop()
-   struct mlib_defer_block_scope *top_block;
    // The jump target to the deferred code to execute, the jump target to resume
    // normal execution, or zero to just enter the normal code block
    int jump;
-   // Tell the deferred code where to jump to after executing the deferred code.
-   int resume_label;
+   int labels[256];
+   int *label_ptr;
 };
+
+static inline void *
+_mlib_defer_clobber_item (void *p)
+{
+   return p;
+}
+
+static void *_mlib_defer_clobber_ptr = NULL;
 
 /**
  * @brief Begin a new function deferral section.
@@ -189,22 +142,49 @@ struct mlib_defer_context {
  * There must be a single corresponding mlib_defer_end() or
  * mlib_defer_end_return().
  */
-#define mlib_defer_begin() _mlibDeferBegin ()
-#define _mlibDeferBegin()                                                      \
-   MLIB_IF_GNU_LIKE (_Pragma ("GCC diagnostic push");)                         \
-   MLIB_IF_GCC (_Pragma ("GCC diagnostic ignored \"-Wmaybe-uninitialized\"");) \
-   /* init a new deferral context. There should be at most                     \
-      one of these per function */                                             \
-   struct mlib_defer_context _mlibDeferContext = {NULL, 0, 0};                 \
-   mlib_defer_push ();                                                         \
-                                                                               \
-   _mlibDeferReenter:                                                          \
-   /* Jump! */                                                                 \
-   switch (_mlibDeferContext.jump) {                                           \
-   default: /* Should never be reached */                                      \
-      abort ();                                                                \
-   case 0: /* The initial label, just enters the code */                       \
+#define mlib_defer_begin(...) _mlibDeferBegin (__VA_ARGS__)
+#define _mlibDeferBegin(...)                                     \
+   MLIB_IF_ELSE (MLIB_IS_EMPTY (__VA_ARGS__),                    \
+                 _mlibDeferBeginReturnsVoid _mlib_nothing () (), \
+                 _mlibDeferBeginReturnsValue _mlib_nothing () (__VA_ARGS__))
+
+#define _mlibDeferBeginPreamble()                          \
+   /* init a new deferral context. There should be at most \
+one of these per function */                               \
+   struct mlib_defer_context _mlibDeferContext = {0};      \
+   _mlibDeferContext.label_ptr = _mlibDeferContext.labels; \
+   *_mlibDeferContext.label_ptr++ = -1;                    \
+                                                           \
+   goto _mlibDeferBegin;                                   \
+   _mlibDeferReenter:
+
+
+#define _mlibDeferBeginReturnsVoid()                     \
+   _mlibDeferBeginPreamble ();                           \
+   /* Jump! */                                           \
+   switch (_mlibDeferContext.jump) {                     \
+   default: /* Should never be reached */                \
+      abort ();                                          \
+   case -1:                                              \
+      return;                                            \
+   case 0: /* The initial label, just enters the code */ \
+   _mlibDeferBegin:                                      \
       ((void) 0)
+
+#define _mlibDeferBeginReturnsValue(T)                   \
+   T _deferFunctionReturnValue;                          \
+   _mlib_defer_clobber_ptr = &_deferFunctionReturnValue; \
+   _mlibDeferBeginPreamble ();                           \
+   switch (_mlibDeferContext.jump) {                     \
+   default:                                              \
+      abort ();                                          \
+   case -1: {                                            \
+      return _deferFunctionReturnValue;                  \
+   }                                                     \
+   case 0:                                               \
+   _mlibDeferBegin:                                      \
+      ((void) 0)
+
 
 /**
  * @brief End an deferral section that was opened by mlib_defer_begin()
@@ -214,11 +194,10 @@ struct mlib_defer_context {
  */
 #define mlib_defer_end() _mlibDeferEnd ()
 #define _mlibDeferEnd()                                                      \
-   MLIB_IF_GNU_LIKE (_Pragma ("GCC diagnostic pop");)                        \
-   if (_mlibDeferContext.top_block) {                                        \
+   if (_mlibDeferContext.label_ptr != _mlibDeferContext.labels) {            \
       fprintf (                                                              \
          stderr,                                                             \
-         "%s:%d: Reached mlib_defer_end() without an mlib_defer_runall()\n", \
+         "%s:%d: Reached mlib_defer_end() without an mlib_defer_return()\n", \
          __FILE__,                                                           \
          __LINE__);                                                          \
       abort ();                                                              \
@@ -253,90 +232,16 @@ struct mlib_defer_context {
       Expr)
 #define _mlibDefer_1(Label, Name, Expr)                        \
    /* "push" an defer item into the current scope */           \
-   struct mlib_deferred_item const Name = {                    \
-      Label,                                                   \
-      _mlibDeferContext.top_block->top_item,                   \
-   };                                                          \
-   _mlibDeferContext.top_block->top_item = &Name;              \
+   *_mlibDeferContext.label_ptr++ = Label;                     \
    /* Create a local "subroutine" that evaluates "Expr"  */    \
    if (0) {                                                    \
    case Label:                                                 \
       do {                                                     \
          MLIB_JUST Expr;                                       \
       } while (0);                                             \
-      _mlibDeferContext.jump = _mlibDeferContext.resume_label; \
+      _mlibDeferContext.jump = *--_mlibDeferContext.label_ptr; \
       goto _mlibDeferReenter;                                  \
    } else                                                      \
-      ((void) 0)
-
-/**t
- * @brief Unwind all deferral scopes in the current function.
- *
- * No further defer-related psuedo-statements may be invoked after this point,
- * except for mlib_defer_end().
- */
-#define mlib_defer_runall() _mlibDeferRunAll ()
-#define _mlibDeferRunAll()                  \
-   if (1) {                                 \
-      while (_mlibDeferContext.top_block) { \
-         mlib_defer_pop ();                 \
-      }                                     \
-   } else                                   \
-      ((void) 0)
-
-/**
- * @brief Push an additional deferral scope onto the current function's defer
- * stack.
- *
- * Subsequent mlib_defer() statements will associate with this stack item
- * until it is popped via another defer psuedo-statement.
- */
-#define mlib_defer_push() _mlibDeferPush ()
-#define _mlibDeferPush() \
-   _mlibDeferPush_1 (    \
-      MLIB_PASTE4 (_mlibDeferBlock, __COUNTER__, _on_line_, __LINE__))
-#define _mlibDeferPush_1(Name)                   \
-   struct mlib_defer_block_scope Name = {        \
-      .next_block = _mlibDeferContext.top_block, \
-   };                                            \
-   _mlibDeferContext.top_block = &Name
-
-/**
- * @brief Pop the nearest deferral scope from the function's defer stack.
- *
- * This should correspond to a call to mlib_defer_push().
- *
- * All mlib_defer() actions between the push() and pop() will be
- * executed, but actions in parent scopes will remain unexecuted.
- *
- * @note The mlib_defer_break and mlib_defer_continue psuedo-statements
- * perform an mlib_defer_pop() automatically.
- */
-#define mlib_defer_pop() _mlibDeferPop ()
-#define _mlibDeferPop()                                                      \
-   if (1) {                                                                  \
-      while (_mlibDeferContext.top_block->top_item) {                        \
-         _mlibDeferRunTopItem (-((__LINE__ * 100) + __COUNTER__));           \
-      }                                                                      \
-      _mlibDeferContext.top_block = _mlibDeferContext.top_block->next_block; \
-   } else                                                                    \
-      ((void) 0)
-
-#define _mlibDeferRunTopItem(ResumeLabel)                                    \
-   if (1) {                                                                  \
-      /* Tell the defer context the case label of the hidden block that      \
-       * contains the deferred code. */                                      \
-      _mlibDeferContext.jump = _mlibDeferContext.top_block->top_item->label; \
-      /* Tell the defer context where to come back to after it has finished  \
-       * running the deferred code */                                        \
-      _mlibDeferContext.resume_label = ResumeLabel;                          \
-      goto _mlibDeferReenter;                                                \
-      /* It will come back to this point: */                                 \
-   case ResumeLabel:                                                         \
-      /* Remove the deferred item that was executed: */                      \
-      _mlibDeferContext.top_block->top_item =                                \
-         _mlibDeferContext.top_block->top_item->prev_item;                   \
-   } else                                                                    \
       ((void) 0)
 
 /**
@@ -349,33 +254,27 @@ struct mlib_defer_context {
  * executed.
  */
 #define mlib_defer_return(...) _mlibDeferReturn (__VA_ARGS__)
-#define _mlibDeferReturn(...) \
-   if (1) {                   \
-      mlib_defer_runall ();   \
-      return __VA_ARGS__;     \
-   } else                     \
+#define _mlibDeferReturn(...)                              \
+   MLIB_IF_ELSE (MLIB_IS_EMPTY (__VA_ARGS__),              \
+                 _mlibDeferReturnVoid _mlib_nothing () (), \
+                 _mlibDeferReturnValue _mlib_nothing () (__VA_ARGS__))
+#define _mlibDeferReturnVoid() \
+   if (1) {                    \
+      _mlibDeferRunAll ();     \
+   } else                      \
+      ((void) 0)
+#define _mlibDeferReturnValue(...)             \
+   if (1) {                                    \
+      _deferFunctionReturnValue = __VA_ARGS__; \
+      _mlibDeferRunAll ();                     \
+   } else                                      \
       ((void) 0)
 
-/**
- * @brief Perform an mlib_defer_pop() followed by 'break' statement
- */
-#define mlib_defer_break _mlibDeferBreak ()
-#define _mlibDeferBreak() \
-   if (1) {               \
-      mlib_defer_pop ();  \
-      break;              \
-   } else                 \
-      ((void) 0)
-
-/**
- * @brief Perform an mlib_defer_pop() followed by a 'continue' statement
- */
-#define mlib_defer_continue _mlibDeferContinue ()
-#define _mlibDeferContinue() \
-   if (1) {                  \
-      mlib_defer_pop ();     \
-      continue;              \
-   } else                    \
+#define _mlibDeferRunAll()                                     \
+   if (1) {                                                    \
+      _mlibDeferContext.jump = *--_mlibDeferContext.label_ptr; \
+      goto _mlibDeferReenter;                                  \
+   } else                                                      \
       ((void) 0)
 
 /**

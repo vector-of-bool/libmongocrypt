@@ -33,7 +33,6 @@ _fle2_append_encryptedFieldConfig (bson_t *dst,
                                    const char *coll_name,
                                    mongocrypt_status_t *status)
 {
-   mlib_defer_begin ();
    bson_iter_t iter;
    bool has_escCollection = false;
    bool has_eccCollection = false;
@@ -41,6 +40,8 @@ _fle2_append_encryptedFieldConfig (bson_t *dst,
    char *default_escCollection = NULL;
    char *default_eccCollection = NULL;
    char *default_ecocCollection = NULL;
+
+   mlib_defer_begin (bool);
 
    mlib_defer (bson_free (default_escCollection),
                bson_free (default_eccCollection),
@@ -207,11 +208,12 @@ _fle2_insert_encryptionInformation (const char *cmd_name,
                                     mc_cmd_target_t cmd_target,
                                     mongocrypt_status_t *status)
 {
-   mlib_defer_begin ();
    bson_t out = BSON_INITIALIZER;
    bson_t explain = BSON_INITIALIZER;
    bson_iter_t iter;
    bool ok = false;
+
+   mlib_defer_begin (bool);
 
    mlib_defer ({
       bson_destroy (&explain);
@@ -947,6 +949,10 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
       "ready for markings");
 
    _mongocrypt_ctx_encrypt_t *ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
+   mongocrypt_binary_t *marked = NULL;
+   mongo_crypt_v1_status *status = NULL;
+   mongo_crypt_v1_query_analyzer *qa = NULL;
+   uint8_t *marked_bson = NULL;
 
    // We have a valid schema and just need to mark the fields for encryption
    if (!ctx->crypt->csfle.okay) {
@@ -958,16 +964,14 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
    _mongo_crypt_v1_vtable csfle = ctx->crypt->csfle;
    mongo_crypt_v1_lib *csfle_lib = ctx->crypt->csfle_lib;
 
-   mlib_defer_begin ();
+   mlib_defer_begin (bool);
    BSON_ASSERT (csfle_lib);
    bool okay = false;
 
    // Obtain the command for markings
    bson_t cmd = BSON_INITIALIZER;
    mlib_defer (bson_destroy (&cmd));
-   if (!_create_markings_cmd_bson (ctx, &cmd)) {
-      mlib_defer_return (false);
-   }
+   mlib_defer_check (_create_markings_cmd_bson (ctx, &cmd));
 
    const char *cmd_name = ectx->cmd_name;
 
@@ -993,28 +997,26 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
    } else                                                              \
       ((void) 0)
 
-   mongo_crypt_v1_status *status = csfle.status_create ();
+   status = csfle.status_create ();
    BSON_ASSERT (status);
    mlib_defer (csfle.status_destroy (status));
 
-   mongo_crypt_v1_query_analyzer *qa =
-      csfle.query_analyzer_create (csfle_lib, status);
+   qa = csfle.query_analyzer_create (csfle_lib, status);
    CHECK_CSFLE_ERROR ("query_analyzer_create", fail_qa_create);
    mlib_defer (csfle.query_analyzer_destroy (qa));
 
    uint32_t marked_bson_len = 0;
-   uint8_t *marked_bson = csfle.analyze_query (qa,
-                                               bson_get_data (&cmd),
-                                               ectx->ns,
-                                               (uint32_t) strlen (ectx->ns),
-                                               &marked_bson_len,
-                                               status);
+   marked_bson = csfle.analyze_query (qa,
+                                      bson_get_data (&cmd),
+                                      ectx->ns,
+                                      (uint32_t) strlen (ectx->ns),
+                                      &marked_bson_len,
+                                      status);
    CHECK_CSFLE_ERROR ("analyze_query", fail_analyze_query);
    mlib_defer (csfle.bson_free (marked_bson));
 
    // Copy out the marked document.
-   mongocrypt_binary_t *marked =
-      mongocrypt_binary_new_from_data (marked_bson, marked_bson_len);
+   marked = mongocrypt_binary_new_from_data (marked_bson, marked_bson_len);
    mlib_defer (mongocrypt_binary_destroy (marked));
    if (!_mongo_feed_markings (ctx, marked)) {
       _mongocrypt_ctx_fail_w_msg (
@@ -1029,9 +1031,7 @@ _try_run_csfle_marking (mongocrypt_ctx_t *ctx)
       mlib_defer_return (false);
    }
 
-   okay = true;
-   mlib_defer_return (okay);
-   mlib_defer_end ();
+   mlib_defer_end_return (okay = true);
 }
 
 
@@ -1936,8 +1936,8 @@ _try_empty_schema_for_create (mongocrypt_ctx_t *ctx)
    return true;
 }
 
-/* _try_schema_from_create_cmd tries to find a JSON schema included in a create
- * command by checking for "validator.$jsonSchema". Example:
+/* _try_schema_from_create_or_collMod_cmd tries to find a JSON schema included
+ * in a create command by checking for "validator.$jsonSchema". Example:
  * {
  *     "create" : "coll",
  *     "validator" : {
@@ -1950,16 +1950,15 @@ _try_empty_schema_for_create (mongocrypt_ctx_t *ctx)
  * is returned. This is to avoid an unnecessary 'listCollections' command for
  * create. */
 static bool
-_try_schema_from_create_cmd (mongocrypt_ctx_t *ctx)
+_try_schema_from_create_or_collMod_cmd (mongocrypt_ctx_t *ctx)
 {
    _mongocrypt_ctx_encrypt_t *ectx;
    mongocrypt_status_t *status = ctx->status;
 
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
-   /* As a special case, use an empty schema for the 'create' command. */
    const char *cmd_name = ectx->cmd_name;
 
-   if (0 != strcmp (cmd_name, "create")) {
+   if (0 != strcmp (cmd_name, "create") || 0 != strcmp (cmd_name, "collMod")) {
       return true;
    }
 
@@ -2525,7 +2524,7 @@ mongocrypt_ctx_encrypt_ismaster_done (mongocrypt_ctx_t *ctx)
       return false;
    }
    if (_mongocrypt_buffer_empty (&ectx->encrypted_field_config)) {
-      if (!_try_schema_from_create_cmd (ctx)) {
+      if (!_try_schema_from_create_or_collMod_cmd (ctx)) {
          return false;
       }
 

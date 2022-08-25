@@ -32,15 +32,16 @@ _replace_FLE2IndexedEqualityEncryptedValue_with_plaintext (
    bson_value_t *out,
    mongocrypt_status_t *status)
 {
-   mlib_defer_begin ();
-   _mongocrypt_key_broker_t *kb = ctx;
    mc_FLE2IndexedEqualityEncryptedValue_t *ieev =
       mc_FLE2IndexedEqualityEncryptedValue_new ();
-   mlib_defer (mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev));
+   _mongocrypt_key_broker_t *const kb = ctx;
    _mongocrypt_buffer_t S_Key = {0};
-   mlib_defer (_mongocrypt_buffer_cleanup (&S_Key));
    _mongocrypt_buffer_t K_Key = {0};
-   mlib_defer (_mongocrypt_buffer_cleanup (&K_Key));
+
+   mlib_defer_begin (bool);
+   mlib_defer (mc_FLE2IndexedEqualityEncryptedValue_destroy (ieev),
+               _mongocrypt_buffer_cleanup (&S_Key),
+               _mongocrypt_buffer_cleanup (&K_Key));
 
    mlib_defer_check (
       mc_FLE2IndexedEqualityEncryptedValue_parse (ieev, in, status));

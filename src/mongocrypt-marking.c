@@ -361,11 +361,12 @@ _mongocrypt_fle2_placeholder_common (_mongocrypt_key_broker_t *kb,
                                      int64_t maxContentionCounter,
                                      mongocrypt_status_t *status)
 {
-   mlib_defer_begin ();
    _mongocrypt_crypto_t *crypto = kb->crypt->crypto;
    _mongocrypt_buffer_t indexKey = {0};
    memset (ret, 0, sizeof (*ret));
    bool okay = false;
+
+   mlib_defer_begin (bool);
    mlib_defer ({
       if (!okay)
          _FLE2EncryptedPayloadCommon_cleanup (ret);

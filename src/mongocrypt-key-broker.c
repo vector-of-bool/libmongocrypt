@@ -152,7 +152,9 @@ static bool
 _try_satisfying_from_cache (_mongocrypt_key_broker_t *kb, key_request_t *req)
 {
    _mongocrypt_cache_key_value_t *value = NULL;
-   mlib_defer_begin ();
+   _mongocrypt_cache_key_attr_t *attr = NULL;
+
+   mlib_defer_begin (bool);
 
    if (kb->state != KB_REQUESTING && kb->state != KB_ADDING_DOCS_ANY) {
       _key_broker_fail_w_msg (
@@ -160,8 +162,7 @@ _try_satisfying_from_cache (_mongocrypt_key_broker_t *kb, key_request_t *req)
       mlib_defer_return (false);
    }
 
-   _mongocrypt_cache_key_attr_t *const attr =
-      _mongocrypt_cache_key_attr_new (&req->id, req->alt_name);
+   attr = _mongocrypt_cache_key_attr_new (&req->id, req->alt_name);
    mlib_defer (_mongocrypt_cache_key_attr_destroy (attr));
 
    if (!_mongocrypt_cache_get (&kb->crypt->cache_key, attr, (void **) &value)) {

@@ -48,15 +48,15 @@ _crypto_aes_256_ctr_encrypt_decrypt_via_ecb (
    BSON_ASSERT (args.iv && args.iv->len);
    BSON_ASSERT (args.out);
 
-   mlib_defer_begin ();
+   _mongocrypt_buffer_t ctr, tmp;
+   mongocrypt_binary_t key_bin, out_bin, in_bin, ctr_bin, tmp_bin;
+
+   mlib_defer_begin (bool);
 
    if (args.out->len < args.in->len) {
       CLIENT_ERR ("output buffer too small");
       mlib_defer_return (false);
    }
-
-   _mongocrypt_buffer_t ctr, tmp;
-   mongocrypt_binary_t key_bin, out_bin, in_bin, ctr_bin, tmp_bin;
 
    _mongocrypt_buffer_to_binary (args.key, &key_bin);
    _mongocrypt_buffer_init (&ctr);
