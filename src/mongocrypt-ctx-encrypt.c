@@ -1958,7 +1958,7 @@ _try_schema_from_create_or_collMod_cmd (mongocrypt_ctx_t *ctx)
    ectx = (_mongocrypt_ctx_encrypt_t *) ctx;
    const char *cmd_name = ectx->cmd_name;
 
-   if (0 != strcmp (cmd_name, "create") || 0 != strcmp (cmd_name, "collMod")) {
+   if (0 != strcmp (cmd_name, "create") && 0 != strcmp (cmd_name, "collMod")) {
       return true;
    }
 
