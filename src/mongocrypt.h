@@ -39,6 +39,10 @@
 #endif
 /* clang-format on */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Returns the version string for libmongocrypt.
  *
@@ -1566,5 +1570,9 @@ mongocrypt_ctx_setopt_algorithm_range (mongocrypt_ctx_t *ctx,
 // NOTE: The Range algorithm is experimental only. It is not intended for public
 // use.
 #define MONGOCRYPT_QUERY_TYPE_RANGE_STR "range"
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif /* MONGOCRYPT_H */
