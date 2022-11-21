@@ -25,6 +25,7 @@ list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include (GNUInstallDirs)
 
 include (ImportBSON)
+include (IntelDFP)
 
 if (USE_SHARED_LIBBSON AND ENABLE_BUILD_FOR_PPA)
    message (FATAL_ERROR "PPA build requires static linking to libbson")
@@ -251,6 +252,7 @@ target_link_libraries (
       _mongocrypt::libbson_for_shared
       Threads::Threads
       kms_message_static
+      _mongocrypt::intel_dfp
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
       ${CMAKE_DL_LIBS}
@@ -299,6 +301,7 @@ target_link_libraries (
    PRIVATE
       _mongocrypt::libbson_for_static
       kms_message_static
+      _mongocrypt::intel_dfp
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
       ${CMAKE_THREAD_LIBS_INIT}
