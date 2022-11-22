@@ -29,15 +29,26 @@ typedef struct mc_dec128_flagset {
    int bits;
 } mc_dec128_flagset;
 
-#ifdef _MSC_VER
-typedef struct __declspec(align (16)) mc_dec128 {
-   uint8_t _bid_bytes[16];
-} mc_dec128;
+// This alignment conditional is the same conditions used in Intel's DFP library
+#if defined _MSC_VER
+#if defined _M_IX86 && !defined __INTEL_COMPILER
+#define _mcDec128Align(n)
 #else
-typedef struct __attribute__ ((aligned (16))) mc_dec128 {
-   uint8_t _bid_bytes[16];
-} mc_dec128;
+#define _mcDec128Align(n) __declspec(align (n))
 #endif
+#else
+#if !defined HPUX_OS
+#define _mcDec128Align(n) __attribute__ ((aligned (n)))
+#else
+#define _mcDec128Align(n)
+#endif
+#endif
+
+typedef struct _mcDec128Align (16) mc_dec128
+{
+   uint8_t _bid_bytes[16];
+}
+mc_dec128;
 
 /// Expands to a dec128 constant value.
 #ifdef __cplusplus
@@ -284,7 +295,7 @@ mc_dec128_to_new_decimal_string (mc_dec128 d)
       mc_dec128 log10 = mc_dec128_modf (mc_dec128_log10 (d)).whole;
       int64_t ndigits = mc_dec128_to_int64 (log10) + 1;
       // +1 for null
-      char *strbuf = (char *) calloc (ndigits + 1, 1);
+      char *strbuf = (char *) calloc ((size_t) (ndigits + 1), 1);
       // Write the string backwards:
       char *optr = strbuf + ndigits - 1;
       while (!mc_dec128_is_zero (modf.whole)) {
@@ -330,5 +341,7 @@ mc_dec128_to_new_decimal_string (mc_dec128 d)
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+#undef _mcDec128Align
 
 #endif // MC_DEC128_H_INCLUDED
