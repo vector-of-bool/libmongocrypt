@@ -29,9 +29,15 @@ typedef struct mc_dec128_flagset {
    int bits;
 } mc_dec128_flagset;
 
+#ifdef _MSC_VER
+typedef struct __declspec(align (16)) mc_dec128 {
+   uint8_t _bid_bytes[16];
+} mc_dec128;
+#else
 typedef struct __attribute__ ((aligned (16))) mc_dec128 {
    uint8_t _bid_bytes[16];
 } mc_dec128;
+#endif
 
 /// Expands to a dec128 constant value.
 #ifdef __cplusplus
@@ -43,7 +49,7 @@ typedef struct __attribute__ ((aligned (16))) mc_dec128 {
 #endif
 #define _mcDec128Const(N, Negate)                   \
    {                                                \
-      ._bid_bytes = {                               \
+      {                                             \
          (((uint64_t) N) & 0xff),                   \
          (((uint64_t) N) >> 8 & 0xff),              \
          (((uint64_t) N) >> 16 & 0xff),             \
@@ -60,7 +66,7 @@ typedef struct __attribute__ ((aligned (16))) mc_dec128 {
          0,                                         \
          64,                                        \
          (Negate << 7) | 48, /* Set the sign bit */ \
-      }                                             \
+      },                                            \
    }
 
 static const mc_dec128 MC_DEC128_ZERO = MC_DEC128_C (0);

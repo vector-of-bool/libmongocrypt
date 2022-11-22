@@ -303,8 +303,7 @@ add_library (_mongocrypt_intel_dfp INTERFACE)
 add_library (_mongocrypt::intel_dfp ALIAS _mongocrypt_intel_dfp)
 
 target_sources (_mongocrypt_intel_dfp INTERFACE $<TARGET_OBJECTS:intel_dfp_obj>)
-target_link_libraries(_mongocrypt_intel_dfp INTERFACE m)
+target_link_libraries(_mongocrypt_intel_dfp INTERFACE $<$<PLATFORM_ID:Linux>:m>)
 
 set_property (TARGET _mongocrypt_intel_dfp PROPERTY EXPORT_NAME _mongocrypt::intel_dfp)
 install (TARGETS _mongocrypt_intel_dfp EXPORT mongocrypt_targets)
-
