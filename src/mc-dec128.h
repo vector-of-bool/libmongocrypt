@@ -2,6 +2,7 @@
 #define MC_DEC128_H_INCLUDED
 
 #include <inttypes.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
