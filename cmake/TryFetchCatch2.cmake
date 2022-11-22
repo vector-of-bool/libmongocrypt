@@ -30,9 +30,16 @@ endif ()
 # Obtain Catch2 v3.1.0
 FetchContent_Declare (Catch2
     URL "https://github.com/catchorg/Catch2/archive/refs/tags/v3.1.0.zip"
+    SOURCE_SUBDIR nil  # Disable the automatic add_subdirectory of MakeAvailable()
     )
 
 FetchContent_MakeAvailable (Catch2)
 
+# Build a library from the amalgamation. This builds significantly faster than
+# compiling all files individually (we don't care about incremental compilation)
+add_library (Catch2WithMain STATIC "${Catch2_SOURCE_DIR}/extras/catch_amalgamated.cpp")
+target_include_directories (Catch2WithMain INTERFACE "${Catch2_SOURCE_DIR}/extras")
+
 # Import the module, used to define/discover tests automatically
+list (APPEND CMAKE_MODULE_PATH "${Catch2_SOURCE_DIR}/extras")
 include (Catch)
