@@ -1,4 +1,4 @@
-#include <catch2/catch.hpp>
+#include <catch_amalgamated.hpp>
 
 #include "./mc-dec128.h"
 
