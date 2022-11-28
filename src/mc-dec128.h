@@ -59,26 +59,27 @@ mc_dec128;
 #define MC_DEC128_C(N) \
    _mcDec128Const (((N) < 0 ? -(N) : (N)), ((N) < 0 ? 1 : 0))
 #endif
-#define _mcDec128Const(N, Negate)                   \
-   {                                                \
-      {                                             \
-         (((uint64_t) N) & 0xff),                   \
-         (((uint64_t) N) >> 8 & 0xff),              \
-         (((uint64_t) N) >> 16 & 0xff),             \
-         (((uint64_t) N) >> 24 & 0xff),             \
-         (((uint64_t) N) >> 32 & 0xff),             \
-         (((uint64_t) N) >> 40 & 0xff),             \
-         (((uint64_t) N) >> 48 & 0xff),             \
-         (((uint64_t) N) >> 56 & 0xff),             \
-         0,                                         \
-         0,                                         \
-         0,                                         \
-         0,                                         \
-         0,                                         \
-         0,                                         \
-         64,                                        \
-         (Negate << 7) | 48, /* Set the sign bit */ \
-      },                                            \
+
+#define _mcDec128Const(N, Negate)                                   \
+   {                                                                \
+      {                                                             \
+         (((uint64_t) N) & 0xff),                                   \
+         (((uint64_t) N) >> 8 & 0xff),                              \
+         (((uint64_t) N) >> 16 & 0xff),                             \
+         (((uint64_t) N) >> 24 & 0xff),                             \
+         (((uint64_t) N) >> 32 & 0xff),                             \
+         (((uint64_t) N) >> 40 & 0xff),                             \
+         (((uint64_t) N) >> 48 & 0xff),                             \
+         (((uint64_t) N) >> 56 & 0xff),                             \
+         0,                                                         \
+         0,                                                         \
+         0,                                                         \
+         0,                                                         \
+         0,                                                         \
+         0,                                                         \
+         1 << 6 /* 0b0010'0000 */,                                  \
+         (1 << 5 | 1 << 4) | /* Set the sign bit: */ (Negate << 7), \
+      },                                                            \
    }
 
 static const mc_dec128 MC_DEC128_ZERO = MC_DEC128_C (0);
@@ -277,11 +278,18 @@ mc_dec128_to_new_decimal_string (mc_dec128 d)
       // Negate the result, return a string with a '-' prefix
       d = mc_dec128_negate (d);
       char *s = mc_dec128_to_new_decimal_string (d);
-      char *s1 = (char *) calloc (strlen (s) + 1, 0);
+      char *s1 = (char *) calloc (strlen (s) + 2, 1);
       s1[0] = '-';
       strcpy (s1 + 1, s);
       free (s);
       return s1;
+   }
+
+   if (mc_dec128_is_inf (d) || mc_dec128_is_nan (d)) {
+      const char *r = mc_dec128_is_inf (d) ? "Infinity" : "NaN";
+      char *c = (char *) calloc (strlen (r) + 1, 1);
+      strcpy (c, r);
+      return c;
    }
 
    const char DIGITS[] = "0123456789";
