@@ -19,10 +19,11 @@ set (required_features cxx_alignas cxx_alignof cxx_attributes cxx_auto_type
     cxx_unicode_literals cxx_user_literals cxx_variable_templates
     cxx_variadic_macros)
 
-list (REMOVE_ITEM required_features ${CMAKE_CXX_COMPILE_FEATURES})
+set (missing_features ${required_features})
+list (REMOVE_ITEM missing_features ${CMAKE_CXX_COMPILE_FEATURES})
 
-if (required_features)
-    string (REPLACE ";" ", " missing "${required_features}")
+if (missing_features)
+    string (REPLACE ";" ", " missing "${missing_features}")
     message (STATUS "Not using Catch2: C++ compiler is missing required features: ${missing}")
     return ()
 endif ()
@@ -42,4 +43,9 @@ include (Catch)
 # compiling all files individually (we don't care about incremental compilation)
 add_library (Catch2WithMain STATIC "${catch2_SOURCE_DIR}/extras/catch_amalgamated.cpp")
 target_include_directories (Catch2WithMain INTERFACE "${catch2_SOURCE_DIR}/extras")
+target_compile_features (Catch2WithMain PUBLIC ${required_features})
 
+# GCC has trouble with compiling and optimizing the large Catch2 file, and takes
+# several minutes before giving up and dropping the debug info. We don't need
+# opt and debug info for Catch2, so compile it plain.
+target_compile_options (Catch2WithMain PRIVATE $<$<CXX_COMPILER_ID:GNU>: -O0 -g0 >)
