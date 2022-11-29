@@ -1,4 +1,6 @@
-#include <catch_amalgamated.hpp>
+#include <doctest.h>
+
+#include <stdlib.h>
 
 #include "./mc-dec128.h"
 
@@ -53,9 +55,10 @@ TEST_CASE ("Simple decimal128 math")
    CHECK (c == mc_dec128_from_string ("2.5"));
 
    mc_dec128_string s = mc_dec128_to_string (c);
-   CHECK_THAT (s.str, Catch::Matchers::Equals ("+25E-1"));
+   CHECK (doctest::String (s.str) == "+25E-1");
 
    char *str = mc_dec128_to_new_decimal_string (c);
-   CHECK_THAT (str, Catch::Matchers::Equals ("2.5"));
+   CHECK (doctest::String (str) == "2.5");
    free (str);
 }
+// egg

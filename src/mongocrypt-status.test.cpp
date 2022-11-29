@@ -1,4 +1,4 @@
-#include <catch_amalgamated.hpp>
+#include <doctest.h>
 
 #include "mongocrypt.h"
 
@@ -13,6 +13,6 @@ TEST_CASE ("Status length")
    uint32_t out_len;
    const char *out = mongocrypt_status_message (status, &out_len);
    CHECK (out_len == 2);
-   CHECK (Catch::StringRef (out) == "so");
+   CHECK (doctest::String (out) == "so");
    mongocrypt_status_destroy (status);
 }
