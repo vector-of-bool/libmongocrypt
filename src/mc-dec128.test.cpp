@@ -1,6 +1,7 @@
-#include <doctest.h>
-
 #include <stdlib.h>
+
+#include <mlib/check.hpp>
+#define CHECK MLIB_CHECK
 
 #include "./mc-dec128.h"
 
@@ -13,10 +14,11 @@ operator<< (std::ostream &out, mc_dec128 d) noexcept
    return out;
 }
 
-#define OPER(Op, Fn)                                           \
-   inline auto operator Op (mc_dec128 a, mc_dec128 b) noexcept \
-   {                                                           \
-      return mc_dec128_##Fn (a, b);                            \
+#define OPER(Op, Fn)                                                \
+   inline auto operator Op (mc_dec128 a, mc_dec128 b) noexcept /**/ \
+      ->decltype (mc_dec128_##Fn (a, b))                            \
+   {                                                                \
+      return mc_dec128_##Fn (a, b);                                 \
    }
 
 OPER (+, add)
@@ -27,10 +29,11 @@ OPER (==, equal)
 OPER (>, greater)
 OPER (<, less)
 
-TEST_CASE ("Simple decimal128 math")
+int
+main ()
 {
    mc_dec128 a = MC_DEC128_ZERO;
-   REQUIRE (mc_dec128_is_zero (a));
+   CHECK (mc_dec128_is_zero (a));
 
    mc_dec128 b = MC_DEC128_ZERO;
    mc_dec128 c = a * b;
@@ -55,10 +58,9 @@ TEST_CASE ("Simple decimal128 math")
    CHECK (c == mc_dec128_from_string ("2.5"));
 
    mc_dec128_string s = mc_dec128_to_string (c);
-   CHECK (doctest::String (s.str) == "+25E-1");
+   CHECK (std::string (s.str) == "+25E-1");
 
    char *str = mc_dec128_to_new_decimal_string (c);
-   CHECK (doctest::String (str) == "2.5");
+   CHECK (std::string (str) == "2.5");
    free (str);
 }
-// egg
