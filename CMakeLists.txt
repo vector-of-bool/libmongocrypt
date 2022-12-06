@@ -32,9 +32,6 @@ if (USE_SHARED_LIBBSON AND ENABLE_BUILD_FOR_PPA)
 endif ()
 
 include (CTest)
-if (BUILD_TESTING)
-   include (TryFetchCatch2)
-endif ()
 
 # Enable a higher warning level and warnings-as-errors
 include (MongoC-Warnings)
@@ -412,15 +409,6 @@ if (BUILD_TESTING)
          # Normalize the output name expected by libmongocrypt
          OUTPUT_NAME "mongo_crypt_v1"
          )
-   endif ()
-
-   if (NOT TARGET Catch2WithMain)
-      message (STATUS "NOTE: Catch2-based tests will NOT be built")
-   else ()
-      file (GLOB_RECURSE test_files CONFIGURE_DEPENDS src/*.test.cpp)
-      add_executable (test-runner ${test_files})
-      target_link_libraries (test-runner PRIVATE Catch2WithMain mongocrypt_static mongo::mlib)
-      doctest_discover_tests (test-runner)
    endif ()
 endif ()
 
