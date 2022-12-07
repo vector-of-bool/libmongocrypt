@@ -299,6 +299,9 @@ target_compile_definitions (intel_dfp_obj PRIVATE
     >
     )
 
+# Suppress warnings in the Intel library. It can generate many
+target_compile_options (intel_dfp_obj PRIVATE -w)
+
 add_library (_mongocrypt_intel_dfp INTERFACE)
 add_library (_mongocrypt::intel_dfp ALIAS _mongocrypt_intel_dfp)
 

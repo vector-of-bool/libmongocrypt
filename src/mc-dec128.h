@@ -54,7 +54,8 @@ typedef struct mc_dec128_flagset {
 typedef union _mcDec128Align (16)
 {
    uint8_t _bid_bytes[16];
-#if !defined(_MSC_VER) && !defined(__INTELLISENSE__)
+#if !defined(__INTELLISENSE__) && defined(__GNUC__) && defined(__amd64) && \
+   !defined(__APPLE__)
    // If supported by the compiler, emit a field that can be used to visualize
    // the value in a debugger.
    float value_ __attribute__ ((mode (TD)));
@@ -247,7 +248,7 @@ mc_dec128_to_string (mc_dec128 d)
 {
    extern void __bid128_to_string (char *, mc_dec128 d, mc_dec128_flagset *);
    mc_dec128_flagset flags = {0};
-   mc_dec128_string out = {0};
+   mc_dec128_string out = {{0}};
    __bid128_to_string (out.str, d, &flags);
    return out;
 }
@@ -509,7 +510,7 @@ mc_dec128_combination (mc_dec128 d)
    // Combo is the next 16 bits:
    int fieldpos = signpos - 17;
    int fieldmask = (1 << 17) - 1;
-   return (uint32_t) ((hi >> fieldpos) & fieldmask);
+   return (uint32_t) ((hi >> fieldpos) & (uint32_t) fieldmask);
 }
 
 /**
@@ -519,7 +520,7 @@ static inline uint64_t
 mc_dec128_coeff_high (mc_dec128 d)
 {
    uint64_t hi_field_mask = (1ull << 49) - 1;
-   uint64_t combo = mc_dec128_combination (d);
+   uint32_t combo = mc_dec128_combination (d);
    if (combo < MC_DEC128_COMBO_NONCANONICAL) {
       uint64_t hi = 0;
       memcpy (&hi, d._bid_bytes + 8, sizeof hi);
@@ -535,7 +536,7 @@ mc_dec128_coeff_high (mc_dec128 d)
 static inline uint64_t
 mc_dec128_coeff_low (mc_dec128 d)
 {
-   uint64_t combo = mc_dec128_combination (d);
+   uint32_t combo = mc_dec128_combination (d);
    if (combo < MC_DEC128_COMBO_NONCANONICAL) {
       uint64_t lo = 0;
       memcpy (&lo, d._bid_bytes, sizeof lo);
@@ -569,10 +570,10 @@ mc_dec128_coeff (mc_dec128 d)
  * positive and negative exponent range. The bias value is defined as
  * MC_DEC128_EXPONENT_BIAS.
  */
-static inline int32_t
+static inline uint32_t
 mc_dec128_get_biased_exp (mc_dec128 d)
 {
-   uint64_t combo = mc_dec128_combination (d);
+   uint32_t combo = mc_dec128_combination (d);
    if (combo < MC_DEC128_COMBO_NONCANONICAL) {
       return combo >> 3;
    }

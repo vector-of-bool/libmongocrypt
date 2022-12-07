@@ -495,8 +495,9 @@ if ("cxx_relaxed_constexpr" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
       # Generate a test executable:
       set (exe_name "${test_name}.test")
       add_executable ("${exe_name}" "${file}")
-      add_test ("${test_name}" "${exe_name}")
+      target_compile_features ("${exe_name}" PRIVATE cxx_relaxed_constexpr)
       target_link_libraries ("${exe_name}" PRIVATE mongocrypt mongo::mlib _mongocrypt::intel_dfp)
+      add_test ("${test_name}" "${exe_name}")
    endforeach ()
 endif ()
 
