@@ -24,17 +24,6 @@ export PATH="$BIN_DIR:/opt/mongodbtoolchain/v2/bin:$PATH"
 test -n "${NODE_NVM_USE_VERSION-}" || echo "Defaulting to using the current Node LTS Release. Set NODE_NVM_USE_VERSION to change."
 : "${NODE_NVM_USE_VERSION:="lts"}"
 
-# locate cmake
-if [ "$OS" == "Windows_NT" ]; then
-  CMAKE=/cygdrive/c/cmake/bin/cmake
-  if [ "$WINDOWS_32BIT" != "ON" ]; then
-      ADDITIONAL_CMAKE_FLAGS="-Thost=x64 -A x64"
-  fi
-else
-  chmod u+x ./.evergreen/find_cmake.sh
-  IGNORE_SYSTEM_CMAKE=1 . ./.evergreen/find_cmake.sh
-fi
-
 # this needs to be explicitly exported for the nvm install below
 export NVM_DIR="${NODE_ARTIFACTS_PATH}/nvm"
 mkdir -p ${NVM_DIR}
