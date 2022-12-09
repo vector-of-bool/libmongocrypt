@@ -108,10 +108,10 @@ typedef struct {
    mc_dec128 value;
 } mc_optional_dec128_t;
 
-#define OPT_MC_DEC128(...)                          \
-   (mc_optional_dec128_t)                           \
-   {                                                \
-      .set = true, .value = (mc_dec128) __VA_ARGS__ \
+#define OPT_MC_DEC128(...)              \
+   (mc_optional_dec128_t)               \
+   {                                    \
+      .set = true, .value = __VA_ARGS__ \
    }
 
 
