@@ -249,7 +249,7 @@ target_link_libraries (
       _mongocrypt::libbson_for_shared
       Threads::Threads
       kms_message_static
-      _mongocrypt::intel_dfp
+      mongocrypt::intel_dfp
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
       ${CMAKE_DL_LIBS}
@@ -298,7 +298,7 @@ target_link_libraries (
    PRIVATE
       _mongocrypt::libbson_for_static
       kms_message_static
-      _mongocrypt::intel_dfp
+      mongocrypt::intel_dfp
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
       ${CMAKE_THREAD_LIBS_INIT}
@@ -496,7 +496,7 @@ if ("cxx_relaxed_constexpr" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
       set (exe_name "${test_name}.test")
       add_executable ("${exe_name}" "${file}")
       target_compile_features ("${exe_name}" PRIVATE cxx_relaxed_constexpr)
-      target_link_libraries ("${exe_name}" PRIVATE mongocrypt mongo::mlib _mongocrypt::intel_dfp)
+      target_link_libraries ("${exe_name}" PRIVATE mongocrypt mongo::mlib mongocrypt::intel_dfp)
       add_test ("${test_name}" "${exe_name}")
    endforeach ()
 endif ()

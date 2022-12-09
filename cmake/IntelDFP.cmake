@@ -1,13 +1,45 @@
 
+include (FetchContent)
+find_program (PATCH_EXECUTABLE patch)
 
 set (_default_url "https://netlib.org/misc/intel/IntelRDFPMathLib20U2.tar.gz")
 
-include (FetchContent)
+set (INTEL_DFP_LIBRARY_URL "${default_url}"
+     CACHE STRING "The URL of an Intel DFP library to use")
+set (INTEL_DFP_LIBRARY_URL_HASH
+     "SHA256=93c0c78e0989df88f8540bf38d6743734804cef1e40706fd8fe5c6a03f79e173"
+     CACHE STRING "The hash of the archive that lives at INTEL_DFP_LIBRARY_URL (Spelled: <ALGO>=<digest>)")
+option (INTEL_DFP_LIBRARY_PATCH_ENABLED
+        "Whether to apply the s390x compatibility patch to the Intel DFP library" ON)
 
-set (INTEL_DFP_LIBRARY_URL "https://netlib.org/misc/intel/IntelRDFPMathLib20U2.tar.gz")
+set (_hash_arg)
+if (NOT INTEL_DFP_LIBRARY_URL_SHA256 STREQUAL "no-verify")
+    set (_hash_arg URL_HASH "${INTEL_DFP_LIBRARY_URL_HASH}")
+endif ()
+
+# Make the PATCH_COMMAND a no-op if it was disabled
+set (_patch_disabler)
+if (NOT INTEL_DFP_LIBRARY_PATCH_ENABLED)
+    set (_patch_disabler "${CMAKE_COMMAND}" -E true)
+endif ()
+
+# NOTE: The applying of the patch expects the correct input directly from the
+#       expanded archive. If the patch needs to re-apply, you may see errors
+#       about trying to update the intel_dfp component. If you are seeing such
+#       errors, delete the `_deps/` subdirectory in the build tree and
+#       re-run CMake the project.
 FetchContent_Declare (
     intel_dfp
     URL "${_default_url}"
+    ${_hash_arg}
+    PATCH_COMMAND
+        ${_patch_disabler}
+        "${PATCH_EXECUTABLE}"
+            --strip=4
+            "--directory=<SOURCE_DIR>"
+            --binary
+            --unified
+            "--input=${PROJECT_SOURCE_DIR}/etc/mongo-inteldfp-s390x.patch"
     )
 
 FetchContent_GetProperties (intel_dfp)
@@ -16,6 +48,8 @@ if (NOT intel_dfp_POPULATED)
     FetchContent_Populate (intel_dfp)
 endif ()
 
+# This list of sources matches the ones used within MongoDB server. The
+# "<library>" prefix is replaced below.
 set (_dfp_sources
     "<library>/float128/dpml_exception.c"
     "<library>/float128/dpml_four_over_pi.c"
@@ -255,11 +289,45 @@ set (_dfp_sources
     "<library>/src/wcstod32.c"
     "<library>/src/wcstod64.c"
     )
+# Put in the actual library path:
 string (REPLACE "<library>" "${intel_dfp_SOURCE_DIR}/LIBRARY" _dfp_sources "${_dfp_sources}")
 
-add_library (intel_dfp_obj ${_dfp_sources})
+#[[
+    Intel DFP gives us a very blunt yet powerfull hammer to avoid symbol
+    collision, since other library may also want a conflicting
+    DFP version: Just rename everything!
+
+    All function names are #defined with a `bid` or `binary` prefix, and are
+    aliased to their "actual" names with a `__bid` or `__binary` prefix,
+    respectively.
+
+    So we can ship our own decimal library without worry, we'll rename those
+    hidden symbols.
+]]
+file (READ "${intel_dfp_SOURCE_DIR}/LIBRARY/src/bid_conf.h" dfp_conf_content)
+string (REGEX REPLACE
+    #[[
+        Match every "#define X Y" where X begins with `"bid" or "binary", and Y
+        begins with "__bid" or "__binary". X and Y must be separated by one or
+        more spaces.
+    ]]
+    "#define ((bid|binary)[^ ]+ +)__(bid|binary)([^ +])"
+    # Replace Y with "__mongocrypt_bid" or "__mongocrypt_binary" as the new prefix.
+    "#define \\1 __mongocrypt_\\3\\4"
+    new_content "${dfp_conf_content}"
+    )
+if (NOT new_content STREQUAL dfp_conf_content)
+    # Only rewrite the file if we changed anything, otherwise we update build
+    # input timestamps and will trigger a rebuild of DFP.
+    file (WRITE "${intel_dfp_SOURCE_DIR}/LIBRARY/src/bid_conf.h" "${new_content}")
+endif ()
+
+# Define the object library
+add_library (intel_dfp_obj OBJECT ${_dfp_sources})
+# Build with -fPIC, since these objects may go into a static OR dynamic library.
 set_property (TARGET intel_dfp_obj PROPERTY POSITION_INDEPENDENT_CODE TRUE)
 
+# DFP needs information about the build target platform. Compute that:
 set (proc_lower $<LOWER_CASE:${CMAKE_SYSTEM_PROCESSOR}>)
 set (ia32_list i386 emscripted x86 arm)
 set (efi2_list aarch64 arm64 x86_64 ppc64le riscv64)
@@ -267,6 +335,9 @@ set (efi2_list aarch64 arm64 x86_64 ppc64le riscv64)
 set (is_linux $<PLATFORM_ID:Linux>)
 set (is_windows $<PLATFORM_ID:Windows>)
 set (is_unix $<NOT:${is_windows}>)
+
+# These compiler definitions may seem a bit strange, but the whole DFP library's
+# config process is strange. These options match those used in MongoDB server.
 target_compile_definitions (intel_dfp_obj PRIVATE
     DECIMAL_CALL_BY_REFERENCE=0
     DECIMAL_GLOBAL_ROUNDING=0
@@ -284,7 +355,6 @@ target_compile_definitions (intel_dfp_obj PRIVATE
         WNT=1
         winnt=1
     >
-    # $<IF:$<C_COMPILER_ID:MSVC>,cl=1,gcc=1>
     $<$<IN_LIST:${proc_lower},${ia32_list}>:
         IA32=1
         ia32=1
@@ -302,11 +372,26 @@ target_compile_definitions (intel_dfp_obj PRIVATE
 # Suppress warnings in the Intel library. It can generate many
 target_compile_options (intel_dfp_obj PRIVATE -w)
 
+# Define an interface library that attaches the built TUs to the consumer
 add_library (_mongocrypt_intel_dfp INTERFACE)
-add_library (_mongocrypt::intel_dfp ALIAS _mongocrypt_intel_dfp)
+add_library (mongocrypt::intel_dfp ALIAS _mongocrypt_intel_dfp)
 
-target_sources (_mongocrypt_intel_dfp INTERFACE $<TARGET_OBJECTS:intel_dfp_obj>)
+target_sources (_mongocrypt_intel_dfp
+    #[[
+        For targets *within this build* that link with mongocrypt::intel_dfp,
+        inject the generated TUs (object files) from the intel_dfp_obj library.
+
+        This will be stripped out of the interface library when it is installed,
+        since we don't want to ship the DFP object separately. Instead, users
+        will link to libmongocrypt, which will contain the necessary TUs for
+        the library (because they link to this interface library).
+    ]]
+    INTERFACE $<BUILD_INTERFACE:$<TARGET_OBJECTS:intel_dfp_obj>>
+    )
+# We do want to propagate an interface requirement: Some platforms need a
+# separate link library to support special math functions.
 target_link_libraries(_mongocrypt_intel_dfp INTERFACE $<$<PLATFORM_ID:Linux>:m>)
 
-set_property (TARGET _mongocrypt_intel_dfp PROPERTY EXPORT_NAME _mongocrypt::intel_dfp)
+# Give the installed target a name to indicate its hidden-ness
+set_property (TARGET _mongocrypt_intel_dfp PROPERTY EXPORT_NAME private::intel_dfp_interface)
 install (TARGETS _mongocrypt_intel_dfp EXPORT mongocrypt_targets)
