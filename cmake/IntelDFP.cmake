@@ -1,6 +1,6 @@
 
 include (FetchContent)
-find_program (PATCH_EXECUTABLE patch)
+find_program (GIT_EXECUTABLE git)
 
 set (_default_url "https://netlib.org/misc/intel/IntelRDFPMathLib20U2.tar.gz")
 
@@ -34,12 +34,10 @@ FetchContent_Declare (
     ${_hash_arg}
     PATCH_COMMAND
         ${_patch_disabler}
-        "${PATCH_EXECUTABLE}"
-            --strip=4
-            "--directory=<SOURCE_DIR>"
-            --binary
-            --unified
-            "--input=${PROJECT_SOURCE_DIR}/etc/mongo-inteldfp-s390x.patch"
+        "${GIT_EXECUTABLE}" --work-tree=<SOURCE_DIR> apply
+            -p 4 # Strip four path components
+            "${PROJECT_SOURCE_DIR}/etc/mongo-inteldfp-s390x.patch"
+            --verbose
     )
 
 FetchContent_GetProperties (intel_dfp)
