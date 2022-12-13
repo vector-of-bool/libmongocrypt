@@ -545,7 +545,7 @@ _test_RangeTest_Encode_Decimal128 (_mongocrypt_tester_t *tester)
    Decimal128Test tests[] = {
 #define CASE(Value, ExpectStr)                               \
    (Decimal128Test){.value = mc_dec128_from_string (#Value), \
-                    .expect = mlib_int128_from_string (ExpectStr)}
+                    .expect = mlib_int128_from_string (ExpectStr, NULL)}
       /* Test cases copied from server Decimal128_Bounds test ... begin */
       // Larger numbers map to larger int128
       CASE (-1234567890E7, "108549948892579231731687303715884111887"),
@@ -620,22 +620,22 @@ _test_RangeTest_Encode_Decimal128 (_mongocrypt_tester_t *tester)
 
       (Decimal128Test){.value = MC_DEC128_LARGEST_POSITIVE,
                        .expect = mlib_int128_from_string (
-                          "293021183460469231731687303715884093440")},
+                          "293021183460469231731687303715884093440", NULL)},
       (Decimal128Test){.value = MC_DEC128_SMALLEST_POSITIVE,
                        .expect = mlib_int128_from_string (
-                          "170141183460469231731687303715884105729")},
+                          "170141183460469231731687303715884105729", NULL)},
       (Decimal128Test){.value = MC_DEC128_LARGEST_NEGATIVE,
                        .expect = mlib_int128_from_string (
-                          "47261183460469231731687303715884118016")},
+                          "47261183460469231731687303715884118016", NULL)},
       (Decimal128Test){.value = MC_DEC128_SMALLEST_NEGATIVE,
                        .expect = mlib_int128_from_string (
-                          "170141183460469231731687303715884105727")},
+                          "170141183460469231731687303715884105727", NULL)},
       (Decimal128Test){.value = MC_DEC128_NORMALIZED_ZERO,
                        .expect = mlib_int128_from_string (
-                          "170141183460469231731687303715884105728")},
+                          "170141183460469231731687303715884105728", NULL)},
       (Decimal128Test){.value = MC_DEC128_NEGATIVE_EXPONENT_ZERO,
                        .expect = mlib_int128_from_string (
-                          "170141183460469231731687303715884105728")},
+                          "170141183460469231731687303715884105728", NULL)},
    /* Test cases copied from server Decimal128_Bounds test ... end */
 
 #define ERROR_CASE(Value, Min, Max, Precision, ErrorString) \
@@ -726,7 +726,7 @@ _test_RangeTest_Encode_Decimal128 (_mongocrypt_tester_t *tester)
       .min = OPT_MC_DEC128 (MC_DEC128_C (-100000)),          \
       .max = OPT_MC_DEC128 (mc_dec128_from_string ("1E22")), \
       .precision = OPT_U32 (Precision),                      \
-      .expect = mlib_int128_from_string (Expect),            \
+      .expect = mlib_int128_from_string (Expect, NULL),      \
    }
 
       ASSERT_EIBPL ("3.1415926535897932384626433832795E20",
@@ -790,13 +790,15 @@ _test_RangeTest_Encode_Decimal128 (_mongocrypt_tester_t *tester)
          MC_DEC128_LARGEST_POSITIVE,
          MC_DEC128_LARGEST_NEGATIVE,
          3,
-         mlib_int128_from_string ("170141183460469231731687303715884105728")),
+         mlib_int128_from_string ("170141183460469231731687303715884105728",
+                                  NULL)),
       ASSERT_EIBB_OVERFLOW (
          0,
          DBL_MAX,
          DBL_MIN,
          3,
-         mlib_int128_from_string ("170141183460469231731687303715884105728")),
+         mlib_int128_from_string ("170141183460469231731687303715884105728",
+                                  NULL)),
 
       ASSERT_EIBB (3.141592653589, 5, 0, 0, 3),
       ASSERT_EIBB (3.141592653589, 5, 0, 1, 31),
@@ -813,7 +815,8 @@ _test_RangeTest_Encode_Decimal128 (_mongocrypt_tester_t *tester)
          DBL_MAX,
          DBL_MIN,
          3,
-         mlib_int128_from_string ("232572183460469231731687303715884099485")),
+         mlib_int128_from_string ("232572183460469231731687303715884099485",
+                                  NULL)),
 
       ASSERT_EIBB (1E9, 1E10, 0, 3, 1000000000000),
       ASSERT_EIBB (1E9, 1E10, 0, 0, 1000000000),
